@@ -9,6 +9,15 @@
 
 A Python CLI application that serves as an intelligent developer assistant, aggregating context from multiple sources (Gmail, Slack, JIRA, GitHub/GitLab, AI Workspace, Org Charts/LDAP) to provide actionable insights and automate routine tasks. The CLI-first architecture enables future UI extensions (Slack bot, web app, etc.) through a shared service layer.
 
+## Clarifications
+
+### Session 2026-01-27
+
+- Q: Credential storage method? → A: Unencrypted local config file (development only, with warning displayed to user)
+- Q: Context cache TTL? → A: 15 minutes - balanced freshness and API efficiency
+- Q: AI model provider for MVP? → A: GCP Vertex AI (Gemini models)
+- Q: Minimum viable context sources for MVP? → A: Gmail, Slack, JIRA, and GitHub (communication + developer workflow)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Unified Morning Brief (Priority: P1)
@@ -157,22 +166,23 @@ As a developer preparing for performance discussions, I want to generate notes s
 - **FR-001**: System MUST provide a CLI interface using a command/subcommand structure (e.g., `devassist brief`, `devassist config add gmail`)
 - **FR-002**: System MUST store all working data in a configurable local workspace directory
 - **FR-003**: System MUST support configuration via environment variables, config files, and CLI flags (in order of precedence)
-- **FR-004**: System MUST securely store credentials using OS-native credential storage or encrypted local files
+- **FR-004**: System MUST store credentials in a local config file (unencrypted for development) and display a security warning on startup
 - **FR-005**: System MUST provide clear, actionable error messages for all failure modes
 
-#### Context Integration
+#### Context Integration (MVP: Gmail, Slack, JIRA, GitHub)
 - **FR-006**: System MUST support pluggable context source adapters with a consistent interface
-- **FR-007**: System MUST support Gmail context integration via OAuth2
-- **FR-008**: System MUST support Slack context integration via OAuth2 or bot token
-- **FR-009**: System MUST support JIRA context integration via API token
-- **FR-010**: System MUST support GitHub/GitLab context integration via personal access tokens
-- **FR-011**: System MUST support LDAP/org chart data integration for stakeholder lookup
-- **FR-012**: System MUST cache fetched context data locally to reduce API calls and enable offline reference
+- **FR-007**: System MUST support Gmail context integration via OAuth2 *(MVP)*
+- **FR-008**: System MUST support Slack context integration via OAuth2 or bot token *(MVP)*
+- **FR-009**: System MUST support JIRA context integration via API token *(MVP)*
+- **FR-010**: System MUST support GitHub context integration via personal access tokens *(MVP)*
+- **FR-010a**: System MAY support GitLab context integration via personal access tokens *(post-MVP)*
+- **FR-011**: System MAY support LDAP/org chart data integration for stakeholder lookup *(post-MVP)*
+- **FR-012**: System MUST cache fetched context data locally with a 15-minute TTL to reduce API calls and enable offline reference
 
 #### AI Integration
-- **FR-013**: System MUST integrate with a remote AI model service for summarization and inference
+- **FR-013**: System MUST integrate with GCP Vertex AI (Gemini models) for summarization and inference
 - **FR-014**: System MUST optimize context sent to AI models to stay within token limits
-- **FR-015**: System MUST support configurable AI model selection (for cost/capability tradeoffs)
+- **FR-015**: System MUST support configurable AI model selection within the Vertex AI Gemini family
 - **FR-016**: System MUST persist conversation memory across sessions for continuity
 
 #### Preference Learning
