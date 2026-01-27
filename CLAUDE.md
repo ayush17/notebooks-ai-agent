@@ -58,18 +58,24 @@ ruff check src/
 ruff format src/
 ```
 
+**Code Quality Policy**: Linter and type checker warnings should be ignored unless they are breaking functionality. The project prioritizes working features over perfect code quality metrics. Fix errors that prevent the code from running, but warnings from ruff and mypy can be addressed later during refactoring phases.
+
 ### Running the CLI
 
 ```bash
 # Show version
 devassist --version
 
-# Initialize workspace (~/.devassist/)
-devassist init
+# Check status
+devassist status
 
-# Configure context sources
+# Configure context sources (interactive prompts)
+# Workspace directory (~/.devassist/) is created automatically
 devassist config add gmail
-devassist config add slack --token xoxb-token
+devassist config add slack
+devassist config add jira
+devassist config add github
+devassist config list
 devassist config test
 
 # Generate morning brief
@@ -155,8 +161,10 @@ All data is stored locally in `~/.devassist/`:
 │   ├── jira/
 │   └── github/
 ├── briefs/              # Historical briefs
-└── preferences.json     # Learned user preferences
+└── preferences.json     # Learned user preferences (planned)
 ```
+
+**Workspace Creation**: The `~/.devassist/` directory is created automatically by `ConfigManager` when it's first instantiated (see `src/devassist/core/config_manager.py:33-35`). There is no separate `init` command - the workspace is created on first use of any command.
 
 **Security Note**: In dev mode, credentials are stored in plain text. Production deployments should use OS-native credential storage.
 
@@ -264,16 +272,31 @@ When implementing features:
 
 ## Project Status
 
-Current development is in the `python-cli` branch. The main branch contains only specifications. Active work includes:
+Current development is in the `python-cli` branch. Active work includes:
 
 - ✅ Project structure and foundational infrastructure
 - ✅ Core models and configuration management
 - ✅ Base adapter contract
+- ✅ Brief generation orchestration with AI integration
 - 🚧 Context source adapter implementations (Gmail, Slack, JIRA, GitHub)
-- 🚧 Brief generation orchestration
-- 🚧 AI integration with Vertex AI
-- ⏳ Preference learning system
-- ⏳ EC2 sandbox management
-- ⏳ Auto-response drafting
+- ⏳ Preference learning system (planned)
+- ⏳ EC2 sandbox management (planned)
+- ⏳ Auto-response drafting (planned)
 
 See `specs/001-dev-assistant-cli/tasks.md` for detailed task tracking.
+
+## Implemented vs Planned Features
+
+### Currently Implemented
+- `devassist status` - Show configuration status
+- `devassist config add/list/remove/test` - Manage context sources (interactive setup)
+- `devassist brief` - Generate morning brief with AI summarization
+
+### Planned (Not Yet Implemented)
+- `devassist prefs` - Preference management
+- `devassist ai` - AI service management
+- `devassist sandbox` - EC2 instance management
+- Quarterly notes generation
+- Auto-response drafting
+
+When documenting or discussing features, clearly distinguish between what's implemented and what's planned.

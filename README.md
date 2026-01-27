@@ -6,10 +6,10 @@ A Python CLI application that aggregates context from multiple developer tools (
 
 - **Unified Morning Brief**: Consolidated summary from all your communication and work tracking tools
 - **Context Source Configuration**: Easy setup for Gmail, Slack, JIRA, and GitHub integrations
-- **Preference Learning**: Learns your priorities over time to improve relevance
-- **EC2 Sandbox Toggle**: Start/stop development instances from the CLI
-- **Auto-Response Drafts**: AI-generated responses with human-in-the-loop approval
-- **Quarterly Notes**: Generate contribution summaries for performance reviews
+- **Preference Learning**: (Planned) Learns your priorities over time to improve relevance
+- **EC2 Sandbox Toggle**: (Planned) Start/stop development instances from the CLI
+- **Auto-Response Drafts**: (Planned) AI-generated responses with human-in-the-loop approval
+- **Quarterly Notes**: (Planned) Generate contribution summaries for performance reviews
 
 ## Installation
 
@@ -30,18 +30,16 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```bash
-# Initialize configuration
-devassist init
-
-# Configure GCP for AI features
+# Configure GCP for AI features (required)
 gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 
-# Add context sources
+# Add context sources (workspace directory ~/.devassist/ is created automatically)
+# Each command will prompt for required credentials interactively
 devassist config add gmail
-devassist config add slack --token xoxb-your-bot-token
-devassist config add jira --url https://company.atlassian.net --email user@company.com
-devassist config add github --token ghp_your_token
+devassist config add slack
+devassist config add jira
+devassist config add github
 
 # Generate morning brief
 devassist brief
@@ -78,18 +76,6 @@ devassist config test
 devassist config remove slack
 ```
 
-### Preferences
-
-```bash
-# Add priority keyword
-devassist prefs add --keyword "urgent" --weight 1.0
-
-# View preferences
-devassist prefs list
-
-# Reset preferences
-devassist prefs reset
-```
 
 ## Development
 

@@ -24,19 +24,7 @@ pip install -e ".[dev]"
 
 ## Initial Setup
 
-### 1. Configure Workspace
-
-```bash
-# Initialize configuration (creates ~/.devassist/)
-devassist init
-
-# This creates:
-# - ~/.devassist/config.yaml (main configuration)
-# - ~/.devassist/cache/ (context cache)
-# - ~/.devassist/briefs/ (generated briefs)
-```
-
-### 2. Configure GCP (Required)
+### 1. Configure GCP (Required)
 
 ```bash
 # Option A: Use gcloud CLI
@@ -45,51 +33,44 @@ gcloud config set project YOUR_PROJECT_ID
 
 # Option B: Service account (for deployment)
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-
-# Verify Vertex AI access
-devassist ai test
 ```
 
-### 3. Add Context Sources
+### 2. Add Context Sources
+
+The workspace directory (~/.devassist/) is created automatically when you add your first source.
 
 #### Gmail
 
 ```bash
 # Start OAuth2 flow (opens browser)
 devassist config add gmail
-
-# Follow prompts to authorize access
-# Tokens stored in ~/.devassist/gmail_token.json
+# Follow the interactive prompts to authorize access
 ```
 
 #### Slack
 
 ```bash
-# Option A: Bot token (simpler)
-devassist config add slack --token xoxb-your-bot-token
-
-# Option B: OAuth (full access)
-devassist config add slack --oauth
+# Interactive setup - will prompt for bot token or OAuth
+devassist config add slack
 ```
 
 #### JIRA
 
 ```bash
-# Requires API token from https://id.atlassian.com/manage-profile/security/api-tokens
-devassist config add jira \
-  --url https://yourcompany.atlassian.net \
-  --email your.email@company.com \
-  --token YOUR_API_TOKEN
+# Interactive setup - will prompt for URL, email, and API token
+# Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+devassist config add jira
 ```
 
 #### GitHub
 
 ```bash
-# Requires PAT from https://github.com/settings/tokens
-devassist config add github --token ghp_your_token
+# Interactive setup - will prompt for personal access token
+# Get PAT from: https://github.com/settings/tokens
+devassist config add github
 ```
 
-### 4. Verify Configuration
+### 3. Verify Configuration
 
 ```bash
 # List configured sources
@@ -126,41 +107,14 @@ devassist brief --json
 ### Configuration Management
 
 ```bash
-# Show current config
-devassist config show
+# List configured sources
+devassist config list
 
 # Remove a source
 devassist config remove slack
 
-# Reset all config
-devassist config reset --confirm
-```
-
-### Preferences
-
-```bash
-# Add priority keyword
-devassist prefs add --keyword "urgent" --weight 1.0
-
-# View preferences
-devassist prefs list
-
-# Reset preferences
-devassist prefs reset
-```
-
-### EC2 Sandbox (Optional)
-
-```bash
-# Add sandbox instance
-devassist sandbox add --instance-id i-0abc123 --name "dev-box"
-
-# Check status
-devassist sandbox status
-
-# Start/stop
-devassist sandbox start dev-box
-devassist sandbox stop dev-box
+# Test connections
+devassist config test
 ```
 
 ## Example Session
@@ -210,34 +164,16 @@ Generated in 2.3s | 28 items processed | Cache expires in 15m
 ### Authentication Issues
 
 ```bash
-# Re-authenticate Gmail
-devassist config refresh gmail
+# Check connection to a specific source
+devassist config test gmail
 
-# Check token validity
-devassist config test gmail --verbose
+# Check all configured sources
+devassist config test
 ```
 
 ### API Rate Limits
 
-The CLI automatically handles rate limits with exponential backoff. If you see rate limit warnings:
-
-```bash
-# Use cached data
-devassist brief --cached-only
-
-# Check rate limit status
-devassist config status
-```
-
-### AI Service Issues
-
-```bash
-# Test Vertex AI connection
-devassist ai test
-
-# Fall back to raw data (no AI summary)
-devassist brief --no-ai
-```
+The CLI automatically handles rate limits with exponential backoff.
 
 ## Development
 
