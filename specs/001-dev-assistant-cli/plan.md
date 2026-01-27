@@ -18,6 +18,7 @@ A Python CLI application that aggregates context from multiple developer tools (
 **Performance Goals**: Morning brief generation < 60 seconds for 4 sources
 **Constraints**: 15-minute cache TTL, graceful degradation on source failures
 **Scale/Scope**: Single user, 4 MVP context sources, local execution
+**Development Process**: TDD (Red-Green-Refactor) - write failing test, implement minimal code, refactor
 
 ## Constitution Check
 
@@ -62,10 +63,13 @@ src/
 │   │   ├── main.py          # Typer app entrypoint
 │   │   ├── brief.py         # brief command
 │   │   ├── config.py        # config commands
+│   │   ├── prefs.py         # preference commands
 │   │   └── sandbox.py       # EC2 sandbox commands
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── brief_service.py # Morning brief orchestration
+│   │   ├── aggregator.py    # Context aggregation (SRP: fetch from sources)
+│   │   ├── ranker.py        # Relevance ranking (SRP: score and sort)
+│   │   ├── brief_generator.py # Brief orchestration (SRP: coordinate flow)
 │   │   ├── config_manager.py
 │   │   └── cache_manager.py
 │   ├── adapters/
@@ -79,17 +83,26 @@ src/
 │   │   ├── __init__.py
 │   │   ├── vertex_client.py # Vertex AI Gemini client
 │   │   └── prompts.py       # Prompt templates
+│   ├── preferences/         # Preference learning module (FR-017 to FR-019)
+│   │   ├── __init__.py
+│   │   ├── preference_store.py   # CRUD for preferences
+│   │   ├── feedback_handler.py   # Capture user feedback
+│   │   └── preference_service.py # Apply preferences to ranking
 │   └── models/
 │       ├── __init__.py
 │       ├── context.py       # ContextItem, ContextSource
 │       ├── config.py        # Configuration models
-│       └── brief.py         # Brief, BriefItem
+│       ├── brief.py         # Brief, BriefItem
+│       └── preferences.py   # UserPreference, Feedback
 
 tests/
 ├── unit/
-│   ├── test_brief_service.py
+│   ├── test_aggregator.py
+│   ├── test_ranker.py
+│   ├── test_brief_generator.py
 │   ├── test_config_manager.py
-│   └── test_cache_manager.py
+│   ├── test_cache_manager.py
+│   └── test_preference_service.py
 ├── integration/
 │   ├── test_gmail_adapter.py
 │   ├── test_slack_adapter.py
@@ -102,7 +115,14 @@ pyproject.toml
 README.md
 ```
 
-**Structure Decision**: Single Python package with clear separation between CLI layer (`cli/`), core services (`core/`), external integrations (`adapters/`), and AI integration (`ai/`). This enables future UI additions by reusing the core services.
+**Structure Decision**: Single Python package with clear separation between CLI layer (`cli/`), core services (`core/`), external integrations (`adapters/`), preference learning (`preferences/`), and AI integration (`ai/`). Each core module follows Single Responsibility Principle. This enables future UI additions by reusing the core services.
+
+**SOLID Alignment**:
+- **SRP**: `aggregator.py` (fetch), `ranker.py` (score), `brief_generator.py` (orchestrate) each have one responsibility
+- **OCP**: Adapter pattern allows new sources without modifying existing code
+- **LSP**: All adapters implement `ContextSourceAdapter` contract
+- **ISP**: Clients depend only on interfaces they use
+- **DIP**: Core depends on abstractions (contracts), not concrete implementations
 
 ## Complexity Tracking
 

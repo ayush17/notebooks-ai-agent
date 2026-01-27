@@ -200,6 +200,11 @@ As a developer preparing for performance discussions, I want to generate notes s
 - **FR-024**: System MUST support running as a containerized application with mounted workspace directory
 - **FR-025**: System MUST provide an evaluation harness for testing tool outcomes and scoring results
 
+#### Development Process (TDD)
+- **FR-026**: All feature implementation MUST follow TDD: write failing test first, implement minimal code to pass, then refactor
+- **FR-027**: No production code may be written without a corresponding failing test
+- **FR-028**: Code coverage MUST maintain minimum 80% for core/ and adapters/ modules
+
 ### Key Entities
 
 - **ContextSource**: Represents a configured integration (type, credentials, connection state, last sync time)
