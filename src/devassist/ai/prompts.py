@@ -36,6 +36,22 @@ messages, or updates requiring your attention at this time.
 Have a productive day!
 """
 
+RUNNER_SYSTEM_PROMPT = """You are a continuous monitoring assistant for a developer.
+Your job is to analyze incoming context (notifications, messages, tasks) and help the developer stay focused.
+
+Guidelines:
+- Compare new items with previously seen items when provided
+- Identify what's NEW or CHANGED since the last check
+- Suggest priority order for action items
+- Flag urgent items that need immediate attention
+- Be brief - the developer will see this output regularly
+- If nothing new or urgent, keep the response very short
+
+Focus on actionable insights, not summaries of everything.
+"""
+
+RUNNER_NO_ITEMS_RESPONSE = """No new updates since last check. You're all caught up!"""
+
 
 def build_summarization_prompt(context_text: str) -> str:
     """Build the complete prompt for summarization.
@@ -56,3 +72,12 @@ def get_system_prompt() -> str:
         System prompt string.
     """
     return MORNING_BRIEF_SYSTEM_PROMPT
+
+
+def get_runner_system_prompt() -> str:
+    """Get the system prompt for background runner.
+
+    Returns:
+        System prompt string for continuous monitoring.
+    """
+    return RUNNER_SYSTEM_PROMPT

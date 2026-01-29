@@ -34,7 +34,12 @@ class BaseAIClient(ABC):
         pass
 
     @abstractmethod
-    async def execute_prompt(self, prompt: str, context: dict[str, Any]) -> str:
+    async def execute_prompt(
+        self,
+        prompt: str,
+        context: dict[str, Any],
+        system_prompt: str | None = None,
+    ) -> str:
         """Execute a custom prompt with provided context.
 
         Used by the background runner to execute user-defined tasks.
@@ -42,6 +47,7 @@ class BaseAIClient(ABC):
         Args:
             prompt: The user's custom prompt/instruction.
             context: Dictionary of context data (e.g., aggregated items).
+            system_prompt: Optional custom system prompt. If None, uses default.
 
         Returns:
             AI-generated response string.

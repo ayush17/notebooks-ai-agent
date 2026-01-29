@@ -125,11 +125,16 @@ class VertexAIClient(BaseAIClient):
             raise last_error
         raise RuntimeError("Summarization failed with unknown error")
 
-    async def _generate_content(self, prompt: str) -> str:
+    async def _generate_content(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> str:
         """Generate content using the AI model.
 
         Args:
             prompt: The prompt to send.
+            system_prompt: Optional custom system prompt. If None, uses default.
 
         Returns:
             Generated content string.
@@ -139,6 +144,7 @@ class VertexAIClient(BaseAIClient):
             return "AI summarization unavailable. Please configure Vertex AI."
 
         client = self._get_client()
+        effective_system_prompt = system_prompt if system_prompt is not None else get_system_prompt()
 
         # Run in thread pool since google-genai may be sync
         loop = asyncio.get_event_loop()
@@ -148,7 +154,7 @@ class VertexAIClient(BaseAIClient):
                 model=self.model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=get_system_prompt(),
+                    system_instruction=effective_system_prompt,
                     temperature=0.3,  # Lower for more consistent outputs
                     max_output_tokens=1024,
                 ),
@@ -157,12 +163,18 @@ class VertexAIClient(BaseAIClient):
 
         return response.text
 
-    async def execute_prompt(self, prompt: str, context: dict[str, Any]) -> str:
+    async def execute_prompt(
+        self,
+        prompt: str,
+        context: dict[str, Any],
+        system_prompt: str | None = None,
+    ) -> str:
         """Execute a custom prompt with provided context.
 
         Args:
             prompt: The user's custom prompt/instruction.
             context: Dictionary of context data.
+            system_prompt: Optional custom system prompt. If None, uses default.
 
         Returns:
             AI-generated response string.
@@ -178,7 +190,7 @@ class VertexAIClient(BaseAIClient):
         last_error: Exception | None = None
         for attempt in range(self.max_retries):
             try:
-                return await self._generate_content(full_prompt)
+                return await self._generate_content(full_prompt, system_prompt=system_prompt)
             except Exception as e:
                 last_error = e
                 if attempt < self.max_retries - 1:

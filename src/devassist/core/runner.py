@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from devassist.ai.base_client import BaseAIClient
+from devassist.ai.prompts import get_runner_system_prompt
 from devassist.core.aggregator import ContextAggregator
 from devassist.models.context import ContextItem
 from devassist.models.mcp_config import MCPConfig
@@ -59,6 +60,7 @@ class Runner:
         # State
         self.running = False
         self.last_run: datetime | None = None
+        self.last_result: str | None = None  # Store previous result for comparison
 
         # Ensure output directory exists
         self.output_destination.parent.mkdir(parents=True, exist_ok=True)
@@ -83,21 +85,26 @@ class Runner:
                 except Exception as e:
                     logger.error(f"Error fetching context: {e}")
 
-            # Format context for AI
+            # Format context for AI (includes previous result for comparison)
             context = self._format_context(items)
 
-            # Execute prompt with AI
+            # Execute prompt with AI using runner-specific system prompt
             if not self.ai_client:
                 logger.warning("No AI client configured")
                 return None
 
-            result = await self.ai_client.execute_prompt(self.prompt, context)
+            result = await self.ai_client.execute_prompt(
+                self.prompt,
+                context,
+                system_prompt=get_runner_system_prompt(),
+            )
 
             # Write output
             self._write_output(result)
 
-            # Update timestamp
+            # Update state
             self.last_run = datetime.now()
+            self.last_result = result
 
             logger.info("Runner task completed successfully")
             return result
@@ -172,7 +179,7 @@ class Runner:
             items: List of context items.
 
         Returns:
-            Dictionary with formatted context data.
+            Dictionary with formatted context data including previous result.
         """
         return {
             "items": [
@@ -189,6 +196,8 @@ class Runner:
             ],
             "count": len(items),
             "timestamp": datetime.now().isoformat(),
+            "previous_result": self.last_result,
+            "last_run": self.last_run.isoformat() if self.last_run else None,
         }
 
     def _write_output(self, output: str) -> None:

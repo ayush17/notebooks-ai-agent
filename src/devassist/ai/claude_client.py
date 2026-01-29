@@ -126,12 +126,18 @@ class ClaudeClient(BaseAIClient):
         # Execute with retry logic
         return await self._execute_with_retry(prompt)
 
-    async def execute_prompt(self, prompt: str, context: dict[str, Any]) -> str:
+    async def execute_prompt(
+        self,
+        prompt: str,
+        context: dict[str, Any],
+        system_prompt: str | None = None,
+    ) -> str:
         """Execute a custom prompt with provided context.
 
         Args:
             prompt: The user's custom prompt/instruction.
             context: Dictionary of context data.
+            system_prompt: Optional custom system prompt. If None, uses default.
 
         Returns:
             AI-generated response string.
@@ -143,7 +149,7 @@ class ClaudeClient(BaseAIClient):
         context_json = json.dumps(context, indent=2, default=str)
         full_prompt = f"{prompt}\n\nContext:\n{context_json}"
 
-        return await self._execute_with_retry(full_prompt)
+        return await self._execute_with_retry(full_prompt, system_prompt=system_prompt)
 
     async def test_connection(self) -> bool:
         """Test connection to Claude API.
@@ -158,11 +164,16 @@ class ClaudeClient(BaseAIClient):
         except Exception:
             return False
 
-    async def _execute_with_retry(self, prompt: str) -> str:
+    async def _execute_with_retry(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> str:
         """Execute prompt with retry logic and exponential backoff.
 
         Args:
             prompt: The prompt to execute.
+            system_prompt: Optional custom system prompt. If None, uses default.
 
         Returns:
             Generated response string.
@@ -174,7 +185,7 @@ class ClaudeClient(BaseAIClient):
 
         for attempt in range(self.max_retries):
             try:
-                return await self._generate_content(prompt)
+                return await self._generate_content(prompt, system_prompt=system_prompt)
             except Exception as e:
                 last_error = e
                 if attempt < self.max_retries - 1:
@@ -185,16 +196,22 @@ class ClaudeClient(BaseAIClient):
             raise last_error
         raise RuntimeError("Request failed with unknown error")
 
-    async def _generate_content(self, prompt: str) -> str:
+    async def _generate_content(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> str:
         """Generate content using Claude API.
 
         Args:
             prompt: The prompt to send.
+            system_prompt: Optional custom system prompt. If None, uses default.
 
         Returns:
             Generated content string.
         """
         client = self._get_client()
+        effective_system_prompt = system_prompt if system_prompt is not None else get_system_prompt()
 
         # Run in thread pool since Anthropic SDK is sync
         loop = asyncio.get_event_loop()
@@ -204,7 +221,7 @@ class ClaudeClient(BaseAIClient):
                 model=self.model,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                system=get_system_prompt(),
+                system=effective_system_prompt,
                 messages=[{"role": "user", "content": prompt}],
             ),
         )
