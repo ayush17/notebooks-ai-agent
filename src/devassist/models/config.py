@@ -60,7 +60,7 @@ class ClientConfig(BaseModel):
 
     # AI Configuration with user-friendly model names
     ai_model: str = Field(
-        default="Sonnet 4",
+        default="opus",
         description="AI model to use (user-friendly name)"
     )
     ai_timeout_seconds: int = Field(

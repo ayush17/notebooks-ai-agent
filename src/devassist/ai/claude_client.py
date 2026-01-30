@@ -148,6 +148,8 @@ class ClaudeClient:
             system_prompt=system_prompt,
             mcp_servers=mcp_servers,
             permission_mode=self.config.permission_mode,
+            max_thinking_tokens=10_000,
+            max_buffer_size=10_000_000
         )
 
         # Initialize SDK client
