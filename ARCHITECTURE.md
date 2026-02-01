@@ -409,6 +409,203 @@ src/devassist/
 ### Session Persistence
 If needed, can extend ClaudeClient to save/restore sessions from disk while maintaining the static store pattern.
 
+## Detailed Technical Architecture
+
+### Brief Generation Technical Flow
+
+```mermaid
+flowchart TD
+    A[User runs: devassist brief] --> B[CLI brief.py]
+    B --> C[ClientConfig]
+    C --> D[BriefGenerator]
+    D --> E[ClaudeClient]
+    E --> F[Claude Session Management]
+
+    F --> G{Session Exists?}
+    G -->|Yes| H[Resume Session]
+    G -->|No| I[Create New Session]
+
+    H --> J[ClaudeSession Object]
+    I --> J
+    J --> K[Initialize Claude SDK Client]
+    K --> L[Configure MCP Servers]
+
+    L --> M[JIRA MCP Server]
+    L --> N[GitHub MCP Server]
+    L --> O[Future: Gmail MCP Server]
+
+    M --> P[Claude Agent SDK]
+    N --> P
+    O --> P
+
+    P --> Q[Claude API Call]
+    Q --> R[AI Processing]
+    R --> S[Generated Response]
+    S --> T[Parse to Brief Model]
+    T --> U[Rich Console Output]
+
+    style A fill:#e1f5fe
+    style E fill:#fff3e0
+    style P fill:#f3e5f5
+    style U fill:#e8f5e8
+```
+
+### Background AI Runner Technical Flow
+
+```mermaid
+flowchart TD
+    A[User runs: devassist ai run] --> B[CLI ai.py]
+    B --> C[RunnerManager]
+    C --> D{Background Mode?}
+
+    D -->|Yes| E[Create Subprocess]
+    D -->|No| F[Run in Foreground]
+
+    E --> G[Environment Variables]
+    G --> H[DEVASSIST_RUNNER_INTERVAL]
+    G --> I[DEVASSIST_RUNNER_PROMPT]
+    G --> J[DEVASSIST_RUNNER_SESSION_ID]
+    G --> K[DEVASSIST_RUNNER_ENABLE_SLACK]
+
+    E --> L[Subprocess: run_background_runner]
+    F --> M[Direct Runner Creation]
+
+    L --> N[Read Env Variables]
+    N --> O[ClientConfig]
+    O --> P[Runner Object]
+    M --> P
+
+    P --> Q[Session Management]
+    Q --> R{Session ID Provided?}
+    R -->|Yes| S[Read from runner-session.txt]
+    R -->|No| T[Create New Session]
+
+    S --> U[Runner Execution Loop]
+    T --> U
+    U --> V[ClaudeClient.make_call]
+    V --> W[Claude SDK Integration]
+    W --> X[MCP Servers]
+    X --> Y[Response Processing]
+    Y --> Z[Write to Output File]
+    Z --> AA[Optional: Slack Notification]
+
+    style A fill:#e1f5fe
+    style C fill:#fff3e0
+    style P fill:#f3e5f5
+    style Z fill:#e8f5e8
+```
+
+### Claude Client Session Management
+
+```mermaid
+flowchart TD
+    A[ClaudeClient.make_call] --> B{session_id provided?}
+
+    B -->|Yes| C{session_id in _session_store?}
+    B -->|No| D[Use client.session]
+
+    C -->|Yes| E[Use Existing Session]
+    C -->|No| F[Subprocess Context]
+
+    F --> G[Create Session Object]
+    G --> H[session_id from parameter]
+    H --> I[Initialize SDK Client]
+    I --> J[Configure MCP Servers]
+    J --> K[Store in _session_store]
+
+    E --> L[Get SDK Client from session.metadata]
+    D --> L
+    K --> L
+
+    L --> M[Check SDK Connection]
+    M --> N{Connected?}
+    N -->|No| O[sdk_client.connect]
+    N -->|Yes| P[sdk_client.query]
+    O --> P
+
+    P --> Q[sdk_client.receive_response]
+    Q --> R[Process Messages]
+    R --> S{Messages Received?}
+    S -->|Yes| T[Join Response Parts]
+    S -->|No| U[Return Validation Message]
+
+    T --> V[Update Session Stats]
+    U --> W[Log Warning]
+    V --> X[Return Response]
+    W --> X
+
+    style A fill:#e1f5fe
+    style F fill:#fff3e0
+    style I fill:#f3e5f5
+    style X fill:#e8f5e8
+```
+
+### MCP Server Integration Sequence
+
+```mermaid
+sequenceDiagram
+    participant CLI as CLI Command
+    participant Config as ClientConfig
+    participant Client as ClaudeClient
+    participant SDK as Claude Agent SDK
+    participant MCP_J as JIRA MCP Server
+    participant MCP_G as GitHub MCP Server
+    participant Claude as Claude API
+
+    CLI->>Config: Load configuration
+    Config->>Client: Initialize with MCP servers
+    Client->>SDK: Create SDK client with MCP config
+
+    SDK->>MCP_J: Connect to JIRA server
+    MCP_J-->>SDK: Connection established
+    SDK->>MCP_G: Connect to GitHub server
+    MCP_G-->>SDK: Connection established
+
+    Client->>SDK: send query with user prompt
+    SDK->>Claude: Forward prompt with MCP context
+
+    Claude->>MCP_J: Fetch JIRA issues
+    MCP_J-->>Claude: Return JIRA data
+    Claude->>MCP_G: Fetch GitHub PRs
+    MCP_G-->>Claude: Return GitHub data
+
+    Claude-->>SDK: Generate response with context
+    SDK-->>Client: Return formatted response
+    Client-->>CLI: Display to user
+```
+
+### Session Persistence Across Processes
+
+```mermaid
+flowchart LR
+    A[Parent Process] --> B[ClaudeClient._session_store]
+    B --> C[session-abc123]
+
+    A --> D[Start Background Runner]
+    D --> E[Subprocess Created]
+    E --> F[Environment Variables]
+    F --> G[DEVASSIST_RUNNER_SESSION_ID=session-abc123]
+
+    E --> H[New Python Process]
+    H --> I[Empty _session_store]
+    I --> J[Read session_id from env]
+    J --> K[Create Session Object]
+    K --> L[session_id = session-abc123]
+    L --> M[New SDK Client with MCP]
+    M --> N[Store in _session_store]
+    N --> O[Session Continuity Achieved]
+
+    C --> P[Save to runner-session.txt]
+    P --> Q[File-based Persistence]
+    Q --> R[Next Process Startup]
+    R --> S[Read from File]
+    S --> K
+
+    style A fill:#e1f5fe
+    style H fill:#fff3e0
+    style O fill:#e8f5e8
+```
+
 ## Conclusion
 
 The new architecture represents a significant simplification while maintaining all functionality:

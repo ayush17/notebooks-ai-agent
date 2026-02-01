@@ -102,14 +102,51 @@ source_configs:
 ```
 
 ### 3. Set Environment Variables
+
+#### Required Environment Variables
+
 ```bash
-# Source credentials (recommended for production)
+# JIRA Integration (Required for JIRA source)
 export JIRA_URL="https://yourcompany.atlassian.net"
-export JIRA_USERNAME="you@company.com"
-export JIRA_PERSONAL_TOKEN="your-jira-token"
-export GITHUB_TOKEN="your-github-token"
+export JIRA_USERNAME="your-email@company.com"
+export JIRA_PERSONAL_TOKEN="your-jira-api-token"
+
+# GitHub Integration (Required for GitHub source)
+export GITHUB_TOKEN="your-github-personal-access-token"
 
 # Claude AI authentication is handled automatically by Agent SDK
+```
+
+#### Optional Environment Variables
+
+```bash
+# JIRA Configuration (Optional)
+export JIRA_SSL_VERIFY="true"  # Set to "false" for self-signed certs (default: true)
+
+# Slack Notifications (Optional - for background runner notifications)
+export SLACK_BOT_TOKEN="xoxb-your-slack-bot-token"
+export SLACK_USER_ID="U1234567890"  # Your Slack user ID for DM notifications
+
+# Gmail Integration (Future - when MCP server available)
+export GMAIL_CLIENT_ID="your-gmail-oauth-client-id"
+export GMAIL_CLIENT_SECRET="your-gmail-oauth-secret"
+
+# Override Default Settings (Optional)
+export DEVASSIST_AI_MODEL="Sonnet 4"  # Override default AI model
+export DEVASSIST_SOURCES="jira,github"  # Override default sources
+export DEVASSIST_TIMEOUT="180"  # AI timeout in seconds (default: 180)
+```
+
+#### Internal Environment Variables (Set Automatically)
+
+These are set automatically by the system and should not be configured manually:
+
+```bash
+# Background Runner Internal Variables (Set by RunnerManager)
+DEVASSIST_RUNNER_INTERVAL="5"  # Runner interval in minutes
+DEVASSIST_RUNNER_PROMPT="..."  # Custom prompt for runner
+DEVASSIST_RUNNER_SESSION_ID="session-123"  # Session continuity
+DEVASSIST_RUNNER_ENABLE_SLACK="true"  # Slack notification setting
 ```
 
 ### 4. Generate Your First Brief
@@ -182,20 +219,30 @@ devassist ai run
 # Start with custom interval and prompt
 devassist ai run --interval 10 --prompt "Summarize urgent tasks requiring immediate attention"
 
+# Control Slack notifications
+devassist ai run --disable-slack  # Disable Slack notifications
+devassist ai run --enable-slack   # Enable Slack notifications (default)
+
 # Run in foreground for testing
 devassist ai run --foreground --interval 2
 
-# Check runner status
-devassist ai status
+# Continue with specific session
+devassist ai run --session-id session-abc123
 
-# View runner logs
-devassist ai logs
+# Management commands
+devassist ai status    # Check runner status and uptime
+devassist ai logs      # View runner logs (last 50 lines)
+devassist ai logs --follow    # Follow logs in real-time
+devassist ai logs --lines 100 # Show more log lines
+devassist ai output    # View latest runner output
+devassist ai kill      # Stop background runner gracefully
+devassist ai kill --force     # Force kill runner
 
-# View latest runner output
-devassist ai output
-
-# Stop background runner
-devassist ai kill
+# Testing and debugging
+devassist ai test      # Test Claude SDK connectivity
+devassist ai sessions  # List active Claude sessions
+devassist ai clear     # Clear all Claude sessions
+devassist ai prompt --prompt "Custom instruction"  # Send prompt to runner session
 ```
 
 ## 🏗️ Architecture Overview
@@ -207,34 +254,128 @@ devassist ai kill
 - **MCP Integration**: Industry-standard context protocol
 - **Background Processing**: Automated AI runner with process management
 
-### Core Components
+### High-Level System Architecture
 
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   CLI Commands  │───▶│   ClientConfig   │───▶│  BriefGenerator │
-│ (brief, ai)     │    │   (Unified)      │    │ (Orchestrator)  │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                         │
-                                                         ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   MCP Servers   │◀───│  ClaudeClient    │◀───│ Static Sessions │
-│ (JIRA, GitHub)  │    │ (Agent SDK)      │    │    Store        │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                 ▲                       ▲
-                                 │                       │
-                    ┌─────────────────┐    ┌─────────────────┐
-                    │ Background      │    │   Runner        │
-                    │ Runner          │    │   Manager       │
-                    └─────────────────┘    └─────────────────┘
+```mermaid
+flowchart TB
+    subgraph "👤 User Experience"
+        A1[🌅 Morning Brief<br/>devassist brief]
+        A2[🤖 Background Monitoring<br/>devassist ai run]
+        A3[💬 Follow-up Questions<br/>devassist brief --prompt]
+    end
+
+    subgraph "📊 Developer Data Sources"
+        B1[📋 JIRA Issues<br/>• Assigned tasks<br/>• Urgent tickets<br/>• Project updates]
+        B2[⚡ GitHub Activity<br/>• PR reviews<br/>• Code changes<br/>• Repository updates]
+        B3[📧 Gmail Integration<br/>• Important emails<br/>• Meeting invites<br/>• Action items]
+        B4[💬 Slack Communications<br/>• Team messages<br/>• Notifications<br/>• Mentions]
+    end
+
+    subgraph "🧠 AI Intelligence Layer"
+        C1[🔮 Claude AI Processing]
+        C2[⚙️ Context Integration]
+        C3[🎯 Priority Analysis]
+        C4[📝 Natural Language Generation]
+    end
+
+    subgraph "✨ Business Outcomes"
+        D1[📈 Prioritized Daily Brief<br/>• Top priorities<br/>• Action items<br/>• Code reviews]
+        D2[⏰ Automated Monitoring<br/>• Background analysis<br/>• Continuous updates<br/>• Proactive alerts]
+        D3[🎯 Focus & Productivity<br/>• Reduced context switching<br/>• Clear priorities<br/>• Informed decisions]
+        D4[🔄 Continuous Learning<br/>• Session continuity<br/>• Context awareness<br/>• Personalized insights]
+    end
+
+    %% User to Data Sources
+    A1 -.-> B1
+    A1 -.-> B2
+    A1 -.-> B3
+    A1 -.-> B4
+
+    A2 -.-> B1
+    A2 -.-> B2
+
+    %% Data Sources to AI
+    B1 --> C1
+    B2 --> C1
+    B3 --> C1
+    B4 --> C1
+
+    C1 --> C2
+    C2 --> C3
+    C3 --> C4
+
+    %% AI to Outcomes
+    C4 --> D1
+    C4 --> D2
+
+    %% Outcomes to User Value
+    D1 --> D3
+    D2 --> D3
+    D1 --> D4
+    D2 --> D4
+
+    %% Follow-up loop
+    A3 -.-> C1
+    D4 -.-> A3
+
+    style A1 fill:#e3f2fd
+    style A2 fill:#e8f5e8
+    style A3 fill:#fff3e0
+    style C1 fill:#f3e5f5
+    style D3 fill:#e8f5e8
+    style D4 fill:#fff3e0
+
+    classDef dataSource fill:#f5f5f5,stroke:#666,color:#333
+    classDef aiLayer fill:#f3e5f5,stroke:#8e24aa,color:#4a148c
+    classDef outcome fill:#e8f5e8,stroke:#4caf50,color:#1b5e20
+
+    class B1,B2,B3,B4 dataSource
+    class C1,C2,C3,C4 aiLayer
+    class D1,D2,D3,D4 outcome
 ```
 
-### Data Flow
-```
-CLI Input → ClientConfig → BriefGenerator → ClaudeClient → MCP Servers → Claude Agent SDK → Response
-Background Runner → ClientConfig → ClaudeClient → MCP Servers → Output File
+### Key Business Benefits
+
+| Capability | Business Value | Technical Implementation |
+|------------|----------------|------------------------|
+| **🌅 Instant Daily Brief** | Start each day informed and focused | Claude AI + Multi-source integration |
+| **⏰ Background Monitoring** | Never miss critical updates | Automated scanning + Smart notifications |
+| **💬 Conversational Interface** | Natural interaction with your data | Session-aware AI conversations |
+| **🔌 Universal Integration** | Connect all your developer tools | Industry-standard MCP protocol |
+| **🎯 Smart Prioritization** | Focus on what matters most | AI-powered relevance ranking |
+| **📈 Continuous Learning** | Gets better as you use it | Session continuity + Context awareness |
+
+### Data Flow & Integration Points
+
+```mermaid
+graph LR
+    subgraph "🔐 Secure Authentication"
+        AUTH[Environment Variables<br/>• JIRA_TOKEN<br/>• GITHUB_TOKEN<br/>• Secure credential management]
+    end
+
+    subgraph "⚙️ Core Engine"
+        ENGINE[DevAssist Engine<br/>• Claude AI integration<br/>• Session management<br/>• Configuration handling]
+    end
+
+    subgraph "📱 User Interfaces"
+        CLI[Command Line<br/>• devassist brief<br/>• devassist ai run<br/>• Interactive sessions]
+        OUTPUT[Rich Output<br/>• Formatted briefs<br/>• JSON export<br/>• Markdown reports]
+    end
+
+    AUTH --> ENGINE
+    ENGINE --> CLI
+    CLI --> OUTPUT
+
+    ENGINE -.->|Background<br/>Monitoring| NOTIFY[Slack Notifications<br/>• Critical updates<br/>• Automated alerts]
+
+    style AUTH fill:#ffebee
+    style ENGINE fill:#f3e5f5
+    style CLI fill:#e3f2fd
+    style OUTPUT fill:#e8f5e8
+    style NOTIFY fill:#fff3e0
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed technical documentation.
+> **For detailed technical implementation:** See [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## ⚙️ Configuration Options
 
@@ -332,13 +473,42 @@ src/devassist/
 
 ### Recommended Approach (Production)
 ```bash
-# Use environment variables for source credentials
+# Core Source Credentials (Required)
 export JIRA_URL="https://yourcompany.atlassian.net"
 export JIRA_USERNAME="your-email@company.com"
 export JIRA_PERSONAL_TOKEN="secure-jira-token"
 export GITHUB_TOKEN="secure-github-token"
+
+# Optional Slack Integration
+export SLACK_BOT_TOKEN="xoxb-secure-slack-bot-token"
+export SLACK_USER_ID="U1234567890"
+
+# Optional JIRA Configuration
+export JIRA_SSL_VERIFY="true"
+
 # Claude AI authentication is handled automatically by Agent SDK
 ```
+
+### How to Get Tokens
+
+#### JIRA Personal Access Token
+1. Go to: `https://yourcompany.atlassian.net/secure/ViewProfile.jspa`
+2. Click **Personal Access Tokens** → **Create Token**
+3. Give it a name (e.g., "DevAssist CLI")
+4. Copy the generated token
+
+#### GitHub Personal Access Token
+1. Go to: [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/personal-access-tokens)
+2. Click **Generate new token (classic)**
+3. Select scopes: `repo`, `read:user`, `read:org`, `notifications`
+4. Copy the generated token
+
+#### Slack Bot Token (Optional)
+1. Go to: [Slack API Apps](https://api.slack.com/apps)
+2. Create new app → From scratch
+3. Go to **OAuth & Permissions** → **Bot Token Scopes**
+4. Add scopes: `chat:write`, `users:read`
+5. Install app to workspace and copy **Bot User OAuth Token**
 
 ### Development Convenience
 ```yaml
@@ -352,7 +522,13 @@ source_configs:
     token: "dev-github-token"
 ```
 
-**⚠️ Never commit credentials to version control**
+### Security Best Practices
+- ✅ **Use environment variables** for production deployments
+- ✅ **Rotate tokens regularly** (every 90 days recommended)
+- ✅ **Use minimal scopes** - only grant necessary permissions
+- ❌ **Never commit credentials** to version control
+- ❌ **Don't share tokens** in chat, email, or documentation
+- ❌ **Avoid logging credentials** - our system filters them automatically
 
 ## 🚀 Migration from Legacy Versions
 
@@ -372,12 +548,86 @@ If you're upgrading from the old adapter-based architecture:
 3. Use new CLI commands: `devassist brief`, `devassist ai`
 4. No Claude API key setup required
 
+## 🔧 Troubleshooting
+
+### Common Issues and Solutions
+
+#### "No response received from Claude SDK"
+This usually indicates MCP server connection issues:
+
+```bash
+# Check your credentials are set
+env | grep -E "(JIRA|GITHUB)"
+
+# Test connectivity
+devassist ai test
+
+# Check logs for detailed error messages
+devassist ai logs
+
+# Common causes:
+# - Missing JIRA_URL, JIRA_USERNAME, or JIRA_PERSONAL_TOKEN
+# - Invalid GitHub token or insufficient permissions
+# - Network connectivity issues to your JIRA instance
+```
+
+#### Background Runner Not Working
+```bash
+# Check runner status
+devassist ai status
+
+# View detailed logs
+devassist ai logs --lines 50
+
+# Common issues:
+# - Environment variables not passed to subprocess
+# - Session file permissions
+# - Port conflicts with MCP servers
+```
+
+#### Session Continuity Problems
+```bash
+# List active sessions
+devassist brief sessions
+
+# Clear problematic sessions
+devassist brief clean --days 1
+
+# Force new session
+devassist brief --refresh
+```
+
+#### Permission Errors
+```bash
+# Check workspace permissions
+ls -la ~/.devassist/
+
+# Recreate workspace if needed
+rm -rf ~/.devassist/
+devassist status  # Recreates workspace
+```
+
+### Debug Mode
+Enable verbose logging for troubleshooting:
+
+```bash
+# Enable debug logging
+export DEVASSIST_DEBUG=true
+
+# Run with detailed output
+devassist brief --refresh
+
+# Check all environment variables
+devassist status
+```
+
 ## 📋 Requirements
 
 - **Python**: 3.11+ (uses modern syntax with `|` unions)
 - **Claude Agent SDK**: Handles AI authentication automatically
 - **MCP Servers**: Configured for desired integrations (JIRA, GitHub)
 - **Source Credentials**: For each context source (JIRA, GitHub tokens)
+- **Container Engine**: Docker or Podman for MCP server execution
 
 ## 🤝 Contributing
 
