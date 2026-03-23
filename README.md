@@ -183,9 +183,10 @@ src/devassist/
 - Ensure environment variables are set: `source ~/.devassist/.env`
 
 ### Atlassian MCP OAuth prompt
-- On first use, the Atlassian Rovo MCP will open a browser for OAuth login
-- Grant the requested permissions to connect your Atlassian account
-- Tokens are cached locally for subsequent use
+- On first use, the Atlassian Rovo MCP will **automatically open your browser** for OAuth login
+- Log into your Atlassian account and grant the requested permissions
+- Tokens are cached locally (~/.mcp-auth/) for subsequent use - no re-login needed
+- If you see `[Using existing client port]` in logs, authentication is already cached
 
 ### GitHub MCP asks for repo details
 - Use specific search syntax: "Search for PRs using is:pr is:open review-requested:@me"
@@ -215,8 +216,11 @@ ruff check src/
 
 - Python 3.11+
 - Node.js 18+ (for MCP servers)
-- API credentials for desired integrations
-- Either Anthropic API key or GCP project with Vertex AI access
+- **Claude AI access** (one of the following):
+  - Anthropic API key from [console.anthropic.com](https://console.anthropic.com) (paid)
+  - OR Red Hat employees: Use Vertex AI with `ANTHROPIC_VERTEX_PROJECT_ID=itpc-gcp-ai-eng-claude`
+- **GitHub**: Personal Access Token (free) - [Create here](https://github.com/settings/tokens)
+- **Jira/Atlassian**: Access to an Atlassian Cloud site (OAuth - browser login on first use)
 
 ## Environment Variables Reference
 
