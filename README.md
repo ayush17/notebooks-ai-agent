@@ -37,8 +37,8 @@ pip install -e ".[dev]"
 # GitHub MCP (required)
 npm install -g @modelcontextprotocol/server-github
 
-# Atlassian MCP (for Jira/Confluence)
-npm install -g mcp-atlassian jsdom
+# Atlassian Rovo MCP (for Jira/Confluence) - uses official Atlassian server
+npm install -g mcp-remote
 
 # Slack MCP (optional)
 npm install -g @modelcontextprotocol/server-slack
@@ -72,11 +72,9 @@ export ANTHROPIC_VERTEX_PROJECT_ID=your-gcp-project
 # Scopes needed: repo, notifications, read:user
 export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_xxx"
 
-# Atlassian/Jira (optional)
-# Get token: https://id.atlassian.com/manage-profile/security/api-tokens
-export ATLASSIAN_BASE_URL="https://your-site.atlassian.net"
-export ATLASSIAN_EMAIL="your-email@example.com"
-export ATLASSIAN_API_TOKEN="your-atlassian-token"
+# Atlassian Rovo MCP (optional)
+# Uses OAuth - authenticates via browser on first use
+export ATLASSIAN_SITE_URL="https://your-site.atlassian.net/"
 
 # Slack (optional)
 export SLACK_BOT_TOKEN="xoxb-xxx"
@@ -174,7 +172,7 @@ src/devassist/
 | Server | Package | Purpose |
 |--------|---------|---------|
 | GitHub | `@modelcontextprotocol/server-github` | PRs, issues, repos |
-| Atlassian | `mcp-atlassian` | Jira issues, Confluence pages |
+| Atlassian | `mcp-remote` → `mcp.atlassian.com` | Jira, Confluence, Compass (official Rovo MCP) |
 | Slack | `@modelcontextprotocol/server-slack` | Messages, channels |
 | Jira (legacy) | `mcp-jira-server` | Self-hosted Jira |
 
@@ -184,10 +182,10 @@ src/devassist/
 - Run `devassist setup status` to check configuration
 - Ensure environment variables are set: `source ~/.devassist/.env`
 
-### Atlassian MCP timeout errors
-- The `mcp-atlassian` package has verbose logging that may cause timeouts
-- Try setting `NO_COLOR=1` before running
-- Jira searches may take 30-60 seconds
+### Atlassian MCP OAuth prompt
+- On first use, the Atlassian Rovo MCP will open a browser for OAuth login
+- Grant the requested permissions to connect your Atlassian account
+- Tokens are cached locally for subsequent use
 
 ### GitHub MCP asks for repo details
 - Use specific search syntax: "Search for PRs using is:pr is:open review-requested:@me"
@@ -228,9 +226,7 @@ ruff check src/
 | `CLAUDE_CODE_USE_VERTEX` | Yes* | Set to `1` for Vertex AI |
 | `ANTHROPIC_VERTEX_PROJECT_ID` | Yes* | GCP project ID for Vertex AI |
 | `GITHUB_PERSONAL_ACCESS_TOKEN` | Yes | GitHub PAT with repo, notifications scopes |
-| `ATLASSIAN_BASE_URL` | No | e.g., `https://redhat.atlassian.net` |
-| `ATLASSIAN_EMAIL` | No | Your Atlassian email |
-| `ATLASSIAN_API_TOKEN` | No | Atlassian API token |
+| `ATLASSIAN_SITE_URL` | No | e.g., `https://redhat.atlassian.net/` (uses OAuth) |
 | `SLACK_BOT_TOKEN` | No | Slack bot token (xoxb-...) |
 | `SLACK_TEAM_ID` | No | Slack workspace ID |
 

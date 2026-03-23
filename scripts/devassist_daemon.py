@@ -100,17 +100,19 @@ class DevAssistDaemon:
                 servers.append(config)
                 logger.info("GitHub MCP server configured")
 
-        # Check Atlassian (Jira/Confluence)
-        if (os.environ.get("ATLASSIAN_BASE_URL") and 
-            os.environ.get("ATLASSIAN_EMAIL") and 
-            os.environ.get("ATLASSIAN_API_TOKEN")):
+        # Check Atlassian Rovo MCP (Jira/Confluence/Compass)
+        if os.environ.get("ATLASSIAN_SITE_URL"):
             config = registry.get("atlassian")
             if config:
-                config.env["ATLASSIAN_BASE_URL"] = os.environ["ATLASSIAN_BASE_URL"]
-                config.env["ATLASSIAN_EMAIL"] = os.environ["ATLASSIAN_EMAIL"]
-                config.env["ATLASSIAN_API_TOKEN"] = os.environ["ATLASSIAN_API_TOKEN"]
+                site_url = os.environ["ATLASSIAN_SITE_URL"]
+                config.env["ATLASSIAN_SITE_URL"] = site_url
+                # Update the --resource arg with the site URL
+                for i, arg in enumerate(config.args):
+                    if arg == "" and i > 0 and config.args[i - 1] == "--resource":
+                        config.args[i] = site_url
+                        break
                 servers.append(config)
-                logger.info("Atlassian MCP server configured")
+                logger.info(f"Atlassian Rovo MCP server configured for {site_url}")
 
         # Check Slack
         if os.environ.get("SLACK_BOT_TOKEN") and os.environ.get("SLACK_TEAM_ID"):

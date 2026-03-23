@@ -80,14 +80,18 @@ class MCPRegistry:
         ),
         "atlassian": MCPServerConfig(
             name="atlassian",
-            command="/opt/homebrew/bin/mcp-atlassian",
-            args=[],
+            command="npx",
+            args=[
+                "-y",
+                "mcp-remote",
+                "https://mcp.atlassian.com/v1/mcp",
+                "--resource",
+                "",  # Will be populated with ATLASSIAN_SITE_URL
+            ],
             env={
-                "ATLASSIAN_BASE_URL": "",
-                "ATLASSIAN_EMAIL": "",
-                "ATLASSIAN_API_TOKEN": "",
+                "ATLASSIAN_SITE_URL": "",  # e.g., https://redhat.atlassian.net/
             },
-            description="Atlassian Cloud integration - Jira issues, Confluence pages",
+            description="Atlassian Rovo MCP Server - Jira, Confluence, Compass (official)",
         ),
     }
 
@@ -105,10 +109,21 @@ class MCPRegistry:
             for key in config.env.keys():
                 env[key] = os.environ.get(key, "")
             
+            # Copy args and handle special cases
+            args = config.args.copy()
+            
+            # For Atlassian, inject the site URL into the --resource arg
+            if name == "atlassian" and env.get("ATLASSIAN_SITE_URL"):
+                # Replace the empty placeholder with the actual site URL
+                for i, arg in enumerate(args):
+                    if arg == "" and i > 0 and args[i - 1] == "--resource":
+                        args[i] = env["ATLASSIAN_SITE_URL"]
+                        break
+            
             self._servers[name] = MCPServerConfig(
                 name=config.name,
                 command=config.command,
-                args=config.args.copy(),
+                args=args,
                 env=env,
                 description=config.description,
                 enabled=config.enabled,

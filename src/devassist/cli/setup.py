@@ -58,10 +58,8 @@ def save_config(config: dict[str, str]) -> None:
         ],
         "GitHub": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
         "JIRA (Legacy)": ["JIRA_BASE_URL", "JIRA_PAT"],
-        "Atlassian (Jira/Confluence)": [
-            "ATLASSIAN_BASE_URL",
-            "ATLASSIAN_EMAIL",
-            "ATLASSIAN_API_TOKEN",
+        "Atlassian Rovo MCP (Jira/Confluence)": [
+            "ATLASSIAN_SITE_URL",
         ],
         "Slack": ["SLACK_BOT_TOKEN", "SLACK_TEAM_ID"],
     }
@@ -159,38 +157,23 @@ def init():
         elif current_github:
             console.print("   [green]✓[/green] Keeping existing GitHub token")
     
-    # === Atlassian (Jira Cloud/Confluence) ===
+    # === Atlassian Rovo MCP (Jira Cloud/Confluence/Compass) ===
     console.print("\n[bold cyan]3. Atlassian Configuration (Jira Cloud/Confluence)[/bold cyan]")
-    console.print("   For Atlassian Cloud (e.g., redhat.atlassian.net)")
-    console.print("   Create an API token at: https://id.atlassian.com/manage-profile/security/api-tokens\n")
+    console.print("   Uses official Atlassian Rovo MCP Server with OAuth authentication.")
+    console.print("   On first use, you'll authenticate via browser.\n")
     
-    current_atlassian_url = config.get("ATLASSIAN_BASE_URL", "")
-    current_atlassian_email = config.get("ATLASSIAN_EMAIL", "")
-    current_atlassian_token = config.get("ATLASSIAN_API_TOKEN", "")
+    current_atlassian_url = config.get("ATLASSIAN_SITE_URL", "")
     
     if Confirm.ask("   Configure Atlassian (Jira/Confluence)?", default=True):
         atlassian_url = Prompt.ask(
-            "   Enter Atlassian base URL (e.g., https://redhat.atlassian.net)",
-            default=current_atlassian_url or "https://redhat.atlassian.net"
+            "   Enter your Atlassian site URL (e.g., https://redhat.atlassian.net/)",
+            default=current_atlassian_url or "https://redhat.atlassian.net/"
         )
-        config["ATLASSIAN_BASE_URL"] = atlassian_url
-        
-        atlassian_email = Prompt.ask(
-            "   Enter your Atlassian email",
-            default=current_atlassian_email
-        )
-        config["ATLASSIAN_EMAIL"] = atlassian_email
-        
-        atlassian_token = Prompt.ask(
-            "   Enter your Atlassian API Token",
-            password=True,
-            default=""
-        )
-        if atlassian_token:
-            config["ATLASSIAN_API_TOKEN"] = atlassian_token
-            console.print("   [green]✓[/green] Atlassian configured")
-        elif current_atlassian_token:
-            console.print("   [green]✓[/green] Keeping existing Atlassian token")
+        # Ensure trailing slash for consistency
+        if not atlassian_url.endswith("/"):
+            atlassian_url += "/"
+        config["ATLASSIAN_SITE_URL"] = atlassian_url
+        console.print("   [green]✓[/green] Atlassian configured (OAuth - browser auth on first use)")
     
     # === JIRA (Legacy - for self-hosted) ===
     console.print("\n[bold cyan]4. JIRA Configuration (Legacy - for self-hosted)[/bold cyan]")
@@ -276,7 +259,7 @@ def status():
         ("Claude AI (Vertex)", config.get("CLAUDE_CODE_USE_VERTEX") == "1" and config.get("ANTHROPIC_VERTEX_PROJECT_ID")),
         ("Claude AI (Direct)", config.get("ANTHROPIC_API_KEY")),
         ("GitHub", config.get("GITHUB_PERSONAL_ACCESS_TOKEN")),
-        ("Atlassian", config.get("ATLASSIAN_BASE_URL") and config.get("ATLASSIAN_EMAIL") and config.get("ATLASSIAN_API_TOKEN")),
+        ("Atlassian Rovo MCP", config.get("ATLASSIAN_SITE_URL")),
         ("JIRA (Legacy)", config.get("JIRA_BASE_URL") and config.get("JIRA_PAT")),
         ("Slack", config.get("SLACK_BOT_TOKEN") and config.get("SLACK_TEAM_ID")),
     ]
@@ -307,7 +290,7 @@ def check_and_prompt_setup() -> bool:
     )
     has_source = (
         config.get("GITHUB_PERSONAL_ACCESS_TOKEN")
-        or (config.get("ATLASSIAN_BASE_URL") and config.get("ATLASSIAN_EMAIL") and config.get("ATLASSIAN_API_TOKEN"))
+        or config.get("ATLASSIAN_SITE_URL")
         or (config.get("JIRA_BASE_URL") and config.get("JIRA_PAT"))
     )
     
