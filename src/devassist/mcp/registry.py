@@ -135,10 +135,21 @@ class MCPRegistry:
             for key in config.env.keys():
                 env[key] = os.environ.get(key, "")
             
+            # Copy args and handle special cases
+            args = config.args.copy()
+            
+            # For Atlassian, inject the site URL into the --resource arg
+            if name == "atlassian" and env.get("ATLASSIAN_SITE_URL"):
+                # Replace the empty placeholder with the actual site URL
+                for i, arg in enumerate(args):
+                    if arg == "" and i > 0 and args[i - 1] == "--resource":
+                        args[i] = env["ATLASSIAN_SITE_URL"]
+                        break
+            
             self._servers[name] = MCPServerConfig(
                 name=config.name,
                 command=config.command,
-                args=config.args.copy(),
+                args=args,
                 env=env,
                 description=config.description,
                 enabled=config.enabled,

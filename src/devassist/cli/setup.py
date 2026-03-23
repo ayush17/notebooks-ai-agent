@@ -176,38 +176,23 @@ def init():
         elif current_github:
             console.print("   [green]✓[/green] Keeping existing GitHub token")
     
-    # === Atlassian (Jira Cloud/Confluence) ===
+    # === Atlassian Rovo MCP (Jira Cloud/Confluence/Compass) ===
     console.print("\n[bold cyan]3. Atlassian Configuration (Jira Cloud/Confluence)[/bold cyan]")
-    console.print("   For Atlassian Cloud (e.g., redhat.atlassian.net)")
-    console.print("   Create an API token at: https://id.atlassian.com/manage-profile/security/api-tokens\n")
+    console.print("   Uses official Atlassian Rovo MCP Server with OAuth authentication.")
+    console.print("   On first use, you'll authenticate via browser.\n")
     
-    current_atlassian_url = config.get("ATLASSIAN_BASE_URL", "")
-    current_atlassian_email = config.get("ATLASSIAN_EMAIL", "")
-    current_atlassian_token = config.get("ATLASSIAN_API_TOKEN", "")
+    current_atlassian_url = config.get("ATLASSIAN_SITE_URL", "")
     
     if Confirm.ask("   Configure Atlassian (Jira/Confluence)?", default=True):
         atlassian_url = Prompt.ask(
-            "   Enter Atlassian base URL (e.g., https://redhat.atlassian.net)",
-            default=current_atlassian_url or "https://redhat.atlassian.net"
+            "   Enter your Atlassian site URL (e.g., https://redhat.atlassian.net/)",
+            default=current_atlassian_url or "https://redhat.atlassian.net/"
         )
-        config["ATLASSIAN_BASE_URL"] = atlassian_url
-        
-        atlassian_email = Prompt.ask(
-            "   Enter your Atlassian email",
-            default=current_atlassian_email
-        )
-        config["ATLASSIAN_EMAIL"] = atlassian_email
-        
-        atlassian_token = Prompt.ask(
-            "   Enter your Atlassian API Token",
-            password=True,
-            default=""
-        )
-        if atlassian_token:
-            config["ATLASSIAN_API_TOKEN"] = atlassian_token
-            console.print("   [green]✓[/green] Atlassian configured")
-        elif current_atlassian_token:
-            console.print("   [green]✓[/green] Keeping existing Atlassian token")
+        # Ensure trailing slash for consistency
+        if not atlassian_url.endswith("/"):
+            atlassian_url += "/"
+        config["ATLASSIAN_SITE_URL"] = atlassian_url
+        console.print("   [green]✓[/green] Atlassian configured (OAuth - browser auth on first use)")
     
     # === Save Configuration ===
     console.print("\n[bold cyan]Saving configuration...[/bold cyan]")

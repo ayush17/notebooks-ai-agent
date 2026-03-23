@@ -1,0 +1,43 @@
+{
+  "jira": {
+    "type": "stdio",
+    "command": "docker",
+    "args": [
+      "run",
+      "-i",
+      "--rm",
+      "-e",
+      "JIRA_URL",
+      "-e",
+      "JIRA_USERNAME",
+      "-e",
+      "JIRA_PERSONAL_TOKEN",
+      "-e",
+      "JIRA_SSL_VERIFY",
+      "ghcr.io/sooperset/mcp-atlassian:latest"
+    ],
+    "description": "Local Atlassian MCP server for JIRA and Confluence access",
+    "env": {
+      "JIRA_URL": "",
+      "JIRA_USERNAME": "",
+      "JIRA_PERSONAL_TOKEN": "",
+      "JIRA_SSL_VERIFY": ""
+    }
+  },
+  "github": {
+    "type": "stdio",
+    "command": "docker",
+    "args": [
+      "run",
+      "-i",
+      "--rm",
+      "-e",
+      "GITHUB_TOKEN",
+      "quay.io/nsingla/mcp-github-readonly:latest"
+    ],
+    "description": "Local GitHub readonly MCP server for repository access",
+    "env": {
+      "GITHUB_TOKEN": ""
+    }
+  }
+}

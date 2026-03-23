@@ -209,8 +209,11 @@ ruff check src/
 
 - Python 3.11+
 - Node.js 18+ (for MCP servers)
-- API credentials for desired integrations
-- Either Anthropic API key or GCP project with Vertex AI access
+- **Claude AI access** (one of the following):
+  - Anthropic API key from [console.anthropic.com](https://console.anthropic.com) (paid)
+  - OR Red Hat employees: Use Vertex AI with `ANTHROPIC_VERTEX_PROJECT_ID=itpc-gcp-ai-eng-claude`
+- **GitHub**: Personal Access Token (free) - [Create here](https://github.com/settings/tokens)
+- **Jira/Atlassian**: Access to an Atlassian Cloud site (OAuth - browser login on first use)
 
 ## Environment Variables Reference
 
