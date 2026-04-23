@@ -55,7 +55,7 @@ User: "What are my GitHub notifications?"
 → Use github tools to fetch notifications, then summarize them
 
 User: "What are my open Jira issues?"
-→ Use atlassian tools to search issues assigned to me, then summarize
+→ Prefer ``jira_rest_search`` / ``jira_rest_get_issue`` when present (API token). Otherwise use Atlassian MCP tools, then summarize
 
 User: "Give me a morning brief"
 → Use multiple tools (e.g. github, atlassian) to gather context, then create a prioritized summary

@@ -14,6 +14,7 @@ from rich.table import Table
 from devassist.adapters import get_adapter, list_available_adapters
 from devassist.adapters.errors import AuthenticationError, SourceUnavailableError
 from devassist.core.config_manager import ConfigManager
+from devassist.core.env_store import merge_devassist_env_updates, source_prompt_config_to_env_updates
 from devassist.cli.security import show_security_warning
 from devassist.models.context import SourceType
 
@@ -95,12 +96,34 @@ def add_source(
         console.print(f"[red]Authentication error:[/red] {e}")
         raise typer.Exit(1)
 
-    # Save configuration
+    # Persist secrets to ~/.devassist/env; YAML marks the source enabled and ai.* may sync.
+    str_cfg = {k: str(v) for k, v in config.items()}
+    env_updates = source_prompt_config_to_env_updates(source_type.value, str_cfg)
+    merge_devassist_env_updates({k: v for k, v in env_updates.items() if v})
+
     manager = ConfigManager()
-    manager.set_source_config(source_type.value, {"enabled": True, **config})
+    manager.set_source_config(source_type.value, {"enabled": True})
+    manager.sync_ai_yaml_from_env_store()
 
     console.print(f"\n[green]{adapter.display_name} configured successfully![/green]")
     console.print(f"Run [bold]devassist config test {source}[/bold] to verify the connection.\n")
+
+
+@app.command("sync")
+def sync_config() -> None:
+    """Align ``config.yaml`` ``ai`` section with Claude/Vortex credentials in ``~/.devassist/env``."""
+    manager = ConfigManager()
+    manager.sync_ai_yaml_from_env_store()
+    cfg = manager.load_config()
+    console.print(
+        f"[green]✓[/green] AI config: provider [cyan]{cfg.ai.provider}[/cyan]"
+        + (
+            f", project [cyan]{cfg.ai.project_id}[/cyan], region [cyan]{cfg.ai.location}[/cyan]"
+            if cfg.ai.provider == "gemini"
+            else ""
+        )
+        + "\n"
+    )
 
 
 @app.command("list")
