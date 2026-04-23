@@ -18,6 +18,7 @@ from devassist.cli.mcp_prepare import (
     prepare_orchestration_agent,
     print_mcp_connection_error,
 )
+from devassist.orchestrator.native_jira_tools import build_jira_native_tool_schemas
 
 console = Console()
 
@@ -52,7 +53,7 @@ def chat(
         typer.Option(
             "--servers",
             "-s",
-            help="Comma-separated list of MCP servers to connect (github,atlassian,filesystem)",
+            help="Comma-separated MCP servers (github,atlassian,filesystem). Jira REST tools appear when Jira API token env is set.",
         ),
     ] = None,
     verbose: Annotated[
@@ -122,7 +123,7 @@ async def _chat_loop(
                 console.print(f"[green]Connected to:[/green] {', '.join(connected_servers)}")
 
                 if verbose:
-                    tools = mcp_client.get_all_tools()
+                    tools = build_jira_native_tool_schemas() + mcp_client.get_all_tools()
                     console.print(f"[dim]Available tools: {len(tools)}[/dim]")
 
                 console.print()
@@ -163,7 +164,7 @@ async def _chat_loop(
                             continue
 
                         elif command == "/tools":
-                            tools = mcp_client.get_all_tools()
+                            tools = build_jira_native_tool_schemas() + mcp_client.get_all_tools()
                             table = Table(title="Available Tools")
                             table.add_column("Tool", style="cyan")
                             table.add_column("Description", style="dim", max_width=60)

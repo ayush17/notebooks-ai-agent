@@ -11,7 +11,10 @@ import httpx
 
 from devassist.adapters.base import ContextSourceAdapter
 from devassist.adapters.errors import AuthenticationError, SourceUnavailableError
+from devassist.jira_enhanced_search import fetch_jql_search_jql_page
 from devassist.models.context import ContextItem, SourceType
+
+_JIRA_SEARCH_FIELDS = "summary,description,assignee,status,updated,priority,issuetype"
 
 
 class JiraAdapter(ContextSourceAdapter):
@@ -153,64 +156,81 @@ class JiraAdapter(ContextSourceAdapter):
             )
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{self._url}/rest/api/3/search",
-                    auth=self._auth,
-                    params={
-                        "jql": jql,
-                        "maxResults": limit,
-                        "fields": "summary,description,assignee,status,updated,priority,issuetype",
-                    },
-                )
-
-                if response.status_code != 200:
-                    raise SourceUnavailableError(
-                        f"JIRA search failed with status {response.status_code}",
-                        source_type="jira",
-                    )
-
-                data = response.json()
-                issues = data.get("issues", [])
-
-                for issue in issues:
-                    key = issue["key"]
-                    fields = issue.get("fields", {})
-
-                    summary = fields.get("summary", "")
-                    description = fields.get("description")
-                    if isinstance(description, dict):
-                        # Handle Atlassian Document Format
-                        description = self._extract_text_from_adf(description)
-
-                    assignee = fields.get("assignee")
-                    assignee_name = assignee.get("displayName") if assignee else None
-
-                    status = fields.get("status", {}).get("name", "Unknown")
-                    priority = fields.get("priority", {}).get("name") if fields.get("priority") else None
-                    issue_type = fields.get("issuetype", {}).get("name", "Issue")
-
-                    updated_str = fields.get("updated", "")
+                cursor: str | None = None
+                yielded = 0
+                while yielded < limit:
+                    page_size = min(100, limit - yielded)
+                    if page_size <= 0:
+                        break
                     try:
-                        # JIRA date format: 2024-01-15T10:30:00.000+0000
-                        timestamp = datetime.fromisoformat(updated_str.replace("+0000", "+00:00"))
-                    except (ValueError, AttributeError):
-                        timestamp = datetime.now()
+                        issues, next_cursor, page_last = await fetch_jql_search_jql_page(
+                            client,
+                            self._url,
+                            self._auth,
+                            jql=jql,
+                            max_results=page_size,
+                            fields=_JIRA_SEARCH_FIELDS,
+                            next_page_token=cursor,
+                        )
+                    except httpx.HTTPStatusError as e:
+                        raise SourceUnavailableError(
+                            f"JIRA search failed with status {e.response.status_code}",
+                            source_type="jira",
+                        ) from e
 
-                    yield ContextItem(
-                        id=key,
-                        source_id="jira",
-                        source_type=SourceType.JIRA,
-                        timestamp=timestamp,
-                        title=f"[{key}] {summary}",
-                        content=description,
-                        author=assignee_name,
-                        url=f"{self._url}/browse/{key}",
-                        metadata={
-                            "status": status,
-                            "priority": priority,
-                            "issue_type": issue_type,
-                        },
-                    )
+                    if not issues:
+                        break
+
+                    for issue in issues:
+                        if yielded >= limit:
+                            break
+                        key = issue["key"]
+                        fields = issue.get("fields", {})
+
+                        summary = fields.get("summary", "")
+                        description = fields.get("description")
+                        if isinstance(description, dict):
+                            description = self._extract_text_from_adf(description)
+                        elif not isinstance(description, str):
+                            description = None
+
+                        assignee = fields.get("assignee")
+                        assignee_name = assignee.get("displayName") if assignee else None
+
+                        status = fields.get("status", {}).get("name", "Unknown")
+                        priority = (
+                            fields.get("priority", {}).get("name") if fields.get("priority") else None
+                        )
+                        issue_type = fields.get("issuetype", {}).get("name", "Issue")
+
+                        updated_str = fields.get("updated", "")
+                        try:
+                            timestamp = datetime.fromisoformat(
+                                updated_str.replace("+0000", "+00:00")
+                            )
+                        except (ValueError, AttributeError):
+                            timestamp = datetime.now()
+
+                        yielded += 1
+                        yield ContextItem(
+                            id=key,
+                            source_id="jira",
+                            source_type=SourceType.JIRA,
+                            timestamp=timestamp,
+                            title=f"[{key}] {summary}",
+                            content=description,
+                            author=assignee_name,
+                            url=f"{self._url}/browse/{key}",
+                            metadata={
+                                "status": status,
+                                "priority": priority,
+                                "issue_type": issue_type,
+                            },
+                        )
+
+                    if page_last or not next_cursor:
+                        break
+                    cursor = next_cursor
 
         except httpx.RequestError as e:
             raise SourceUnavailableError(

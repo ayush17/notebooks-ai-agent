@@ -9,6 +9,7 @@ from typing import Any
 from devassist.mcp.client import MCPClient, ToolResult, ToolSchema
 from devassist.mcp.registry import MCPRegistry
 from devassist.orchestrator.llm_client import LLMClient, LLMResponse, Message, ToolCall
+from devassist.orchestrator.native_jira_tools import build_jira_native_tool_schemas, run_jira_native_tool
 from devassist.orchestrator.prompts import get_system_prompt, build_tool_context
 
 
@@ -72,8 +73,9 @@ class OrchestrationAgent:
         sources_used: set[str] = set()
         tool_calls_made = 0
 
-        # Get available tools from MCP
-        tools = self._mcp.get_all_tools()
+        # Native Jira REST tools (API token) + MCP tools
+        native_tools = build_jira_native_tool_schemas()
+        tools = native_tools + self._mcp.get_all_tools()
 
         # Build initial messages
         system_prompt = self._build_system_prompt(tools)
@@ -151,10 +153,13 @@ class OrchestrationAgent:
         Returns:
             List of tool results.
         """
-        results = []
+        results: list[ToolResult] = []
         for tc in tool_calls:
-            result = await self._mcp.call_tool(tc.name, tc.arguments)
-            results.append(result)
+            native = await run_jira_native_tool(tc.name, tc.arguments)
+            if native is not None:
+                results.append(native)
+            else:
+                results.append(await self._mcp.call_tool(tc.name, tc.arguments))
         return results
 
     def _build_system_prompt(self, tools: list[ToolSchema]) -> str:

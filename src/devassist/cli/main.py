@@ -3,7 +3,6 @@
 Provides the primary Typer application and core commands.
 """
 
-from pathlib import Path
 from typing import Optional
 
 import typer
@@ -46,21 +45,27 @@ def main(
     An AI-powered CLI that aggregates context from multiple developer tools
     (Gmail, Slack, JIRA, GitHub) and generates a Unified Morning Brief.
     """
-    # Security warning is shown contextually by commands that handle credentials
-    pass
+    from devassist.core.env_store import load_devassist_env_into_os
+
+    # Canonical credentials: ~/.devassist/env (legacy ~/.devassist/.env merged in).
+    load_devassist_env_into_os(prefer_file=True)
 
 
 @app.command()
 def status() -> None:
     """Show current configuration status."""
     from devassist.core.config_manager import ConfigManager
+    from devassist.core.env_store import get_env_file_path
 
     manager = ConfigManager()
+    cfg = manager.load_config()
     sources = manager.list_sources()
 
     console.print(f"\n[bold]DevAssist v{__version__}[/bold]\n")
     console.print(f"Workspace: {manager.workspace_dir}")
+    console.print(f"Env file: {get_env_file_path()}")
     console.print(f"Config: {manager.config_path}")
+    console.print(f"Brief AI: provider {cfg.ai.provider}")
 
     if sources:
         console.print(f"\nConfigured sources: {', '.join(sources)}")

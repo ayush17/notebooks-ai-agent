@@ -10,15 +10,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Setup
 
-```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# or: .venv\Scripts\activate  # Windows
+Use [uv](https://docs.astral.sh/uv/) for reproducible installs (`uv.lock`, `.python-version`).
 
-# Install in development mode
-pip install -e ".[dev]"
+```bash
+# Install uv: https://docs.astral.sh/uv/getting-started/installation/
+uv sync --extra dev
+
+# Optional: activate the managed venv
+source .venv/bin/activate   # Linux/macOS (uv creates .venv by default)
+
+# Run tools without activating
+uv run devassist --version
 ```
+
+Without uv: `python -m venv .venv`, activate it, then `pip install -e ".[dev]"`.
 
 ### Container Engine Setup (Docker/Podman)
 
@@ -36,38 +41,38 @@ sudo ln -s $(which podman) /usr/local/bin/docker
 
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run with coverage (minimum 80% required)
-pytest --cov=devassist
+uv run pytest --cov=devassist
 
 # Run unit tests only
-pytest tests/unit/
+uv run pytest tests/unit/
 
 # Run integration tests (requires real API credentials, skipped in CI)
-pytest tests/integration/ -m integration
+uv run pytest tests/integration/ -m integration
 
 # Run contract tests (validate adapter implementations)
-pytest tests/contract/
+uv run pytest tests/contract/
 
 # Run specific test file
-pytest tests/unit/test_brief_generator.py -v
+uv run pytest tests/unit/test_brief_generator.py -v
 
 # Skip slow/integration tests
-pytest -m "not integration and not slow"
+uv run pytest -m "not integration and not slow"
 ```
 
 ### Code Quality
 
 ```bash
 # Type checking (strict mode enabled)
-mypy src/
+uv run mypy src/
 
 # Linting
-ruff check src/
+uv run ruff check src/
 
 # Format code
-ruff format src/
+uv run ruff format src/
 ```
 
 **Code Quality Policy**: Linter and type checker warnings should be ignored unless they are breaking functionality. The project prioritizes working features over perfect code quality metrics. Fix errors that prevent the code from running, but warnings from ruff and mypy can be addressed later during refactoring phases.
