@@ -10,7 +10,40 @@ from typing import Any
 
 import yaml
 
+from devassist.core.env_store import (
+    SOURCE_ENV_KEYS,
+    read_devassist_env_dict,
+    remove_devassist_env_keys,
+    source_config_from_env,
+)
 from devassist.models.config import AIConfig, AppConfig, sanitize_gcp_field
+from devassist.utils.gcp_env import resolve_gcp_project_id
+
+
+def infer_ai_updates_from_env(env: dict[str, str]) -> dict[str, Any]:
+    """Derive persisted ``ai`` YAML fields from ``~/.devassist/env`` (brief + tooling alignment).
+
+    Honors ``DEVASSIST_AI_PROVIDER`` when set in the env file, else infers from
+    Vertex vs direct Anthropic API credentials.
+    """
+    explicit = sanitize_gcp_field(env.get("DEVASSIST_AI_PROVIDER", "")).lower()
+    if explicit:
+        if explicit in ("vertex", "google"):
+            explicit = "gemini"
+        if explicit in ("anthropic", "gemini"):
+            return {"provider": explicit}
+
+    use_vertex = (env.get("CLAUDE_CODE_USE_VERTEX") or "").strip() == "1"
+    pid = sanitize_gcp_field(env.get("ANTHROPIC_VERTEX_PROJECT_ID", ""))
+    region = sanitize_gcp_field(env.get("CLOUD_ML_REGION", ""))
+    if use_vertex and pid:
+        updates: dict[str, Any] = {"provider": "gemini", "project_id": pid}
+        if region:
+            updates["location"] = region
+        return updates
+    if (env.get("ANTHROPIC_API_KEY") or "").strip():
+        return {"provider": "anthropic"}
+    return {}
 
 
 class ConfigManager:
@@ -84,6 +117,8 @@ class ConfigManager:
 
         # AI config overrides
         ai_overrides: dict[str, Any] = {}
+        if provider := os.environ.get(f"{self.ENV_PREFIX}AI_PROVIDER"):
+            ai_overrides["provider"] = provider
         if project_id := os.environ.get(f"{self.ENV_PREFIX}AI_PROJECT_ID"):
             ai_overrides["project_id"] = project_id
         if location := os.environ.get(f"{self.ENV_PREFIX}AI_LOCATION"):
@@ -96,18 +131,12 @@ class ConfigManager:
             current_ai.update(ai_overrides)
             config_dict["ai"] = current_ai
 
-        # Brief uses ``config.ai.project_id``; also honor GCP project from setup / shell
+        # Brief uses ``config.ai.project_id``; honor env vars and active ``gcloud`` profile
         current_ai = config_dict.get("ai") or {}
         if not (current_ai.get("project_id") or "").strip():
-            for key in (
-                "ANTHROPIC_VERTEX_PROJECT_ID",
-                "GOOGLE_CLOUD_PROJECT",
-                "GCLOUD_PROJECT",
-            ):
-                if raw := os.environ.get(key):
-                    current_ai["project_id"] = sanitize_gcp_field(raw)
-                    config_dict["ai"] = current_ai
-                    break
+            if pid := resolve_gcp_project_id():
+                current_ai["project_id"] = pid
+                config_dict["ai"] = current_ai
 
         # Workspace dir override
         if workspace := os.environ.get(f"{self.ENV_PREFIX}WORKSPACE_DIR"):
@@ -132,6 +161,9 @@ class ConfigManager:
     def get_source_config(self, source_name: str) -> dict[str, Any] | None:
         """Get configuration for a specific source.
 
+        Secrets live in ``~/.devassist/env``; YAML may only store ``enabled: true``.
+        Values from the environment override YAML for the same keys.
+
         Args:
             source_name: Name of the source (e.g., 'gmail', 'slack').
 
@@ -139,12 +171,20 @@ class ConfigManager:
             Source configuration dict or None if not configured.
         """
         config = self._config or self.load_config()
-        return config.sources.get(source_name)
+        yaml_cfg = config.sources.get(source_name) or {}
+        env_cfg = source_config_from_env(source_name)
+        merged: dict[str, Any] = {**yaml_cfg}
+        for k, v in env_cfg.items():
+            if v:
+                merged[k] = v
+        if not merged:
+            return None
+        return merged
 
     def set_source_config(
         self, source_name: str, source_config: dict[str, Any]
     ) -> None:
-        """Set configuration for a specific source.
+        """Set non-secret source flags in YAML (secrets belong in ``~/.devassist/env``).
 
         Args:
             source_name: Name of the source.
@@ -155,29 +195,43 @@ class ConfigManager:
         self.save_config(config)
 
     def remove_source_config(self, source_name: str) -> bool:
-        """Remove configuration for a specific source.
+        """Remove YAML entry and clear related keys from env files.
 
         Args:
             source_name: Name of the source to remove.
 
         Returns:
-            True if source was removed, False if it didn't exist.
+            True if something was removed from YAML or from the env file.
         """
         config = self._config or self.load_config()
-        if source_name in config.sources:
-            del config.sources[source_name]
+        sn = source_name.lower()
+        removed = False
+        if sn in config.sources:
+            del config.sources[sn]
             self.save_config(config)
-            return True
-        return False
+            removed = True
+        keys = SOURCE_ENV_KEYS.get(sn, ())
+        if keys:
+            prior = read_devassist_env_dict()
+            if any(k in prior for k in keys):
+                remove_devassist_env_keys(keys)
+                removed = True
+        return removed
 
     def list_sources(self) -> list[str]:
         """List all configured source names.
+
+        Includes sources declared in YAML and sources implied by env files.
 
         Returns:
             List of configured source names.
         """
         config = self._config or self.load_config()
-        return list(config.sources.keys())
+        names = set(config.sources.keys())
+        for candidate in sorted(SOURCE_ENV_KEYS):
+            if source_config_from_env(candidate):
+                names.add(candidate)
+        return sorted(names)
 
     def get_ai_config(self) -> dict[str, Any]:
         """Get AI configuration.
@@ -211,3 +265,21 @@ class ConfigManager:
             config.mcp_servers = {}
         config.mcp_servers[server_name] = server_config
         self.save_config(config)
+
+    def sync_ai_yaml_from_env_store(self) -> bool:
+        """Merge ``infer_ai_updates_from_env`` into ``config.yaml`` and save if anything changes.
+
+        Call after updating ``~/.devassist/env`` so ``ai.provider`` / ``project_id`` stay aligned
+        with Claude (Vertex vs API) credentials.
+        """
+        merged = read_devassist_env_dict()
+        updates = infer_ai_updates_from_env(merged)
+        if not updates:
+            return False
+        config = self.load_config()
+        ai_dict = config.ai.model_dump()
+        ai_dict.update(updates)
+        new_ai = AIConfig(**ai_dict)
+        new_config = config.model_copy(update={"ai": new_ai})
+        self.save_config(new_config)
+        return True

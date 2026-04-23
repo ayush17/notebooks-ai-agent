@@ -6,8 +6,10 @@ Handles AI summarization using Google Cloud Vertex AI (Gemini).
 import asyncio
 from typing import Any
 
-from devassist.ai.prompts import NO_ITEMS_SUMMARY, build_summarization_prompt, get_system_prompt
+from devassist.ai.brief_context import format_brief_user_prompt
+from devassist.ai.prompts import NO_ITEMS_SUMMARY, get_system_prompt
 from devassist.models.config import DEFAULT_VERTEX_GEMINI_MODEL, sanitize_gcp_field
+from devassist.utils.gcp_env import resolve_gcp_project_id
 from devassist.models.context import ContextItem
 
 # Google Cloud AI imports are done lazily to avoid initialization issues
@@ -73,7 +75,8 @@ class VertexAIClient:
             timeout_seconds: Request timeout.
             max_input_tokens: Maximum input tokens for context.
         """
-        self.project_id = sanitize_gcp_field(project_id or "")
+        pid = sanitize_gcp_field(project_id or "")
+        self.project_id = sanitize_gcp_field(pid or resolve_gcp_project_id())
         self.location = sanitize_gcp_field(location or self.DEFAULT_LOCATION)
         self.model = sanitize_gcp_field(model or self.DEFAULT_MODEL)
         self.max_retries = max_retries if max_retries is not None else self.DEFAULT_MAX_RETRIES
@@ -180,53 +183,4 @@ class VertexAIClient:
         Returns:
             Formatted prompt string.
         """
-        # Sort by relevance score (highest first)
-        sorted_items = sorted(items, key=lambda x: x.relevance_score, reverse=True)
-
-        # Build context text with token budget awareness
-        context_parts: list[str] = []
-        estimated_tokens = 0
-
-        for item in sorted_items:
-            item_text = self._format_item(item)
-            # Rough token estimate: ~4 chars per token
-            item_tokens = len(item_text) // 4
-
-            if estimated_tokens + item_tokens > self.max_input_tokens:
-                break
-
-            context_parts.append(item_text)
-            estimated_tokens += item_tokens
-
-        context_text = "\n\n".join(context_parts)
-        return build_summarization_prompt(context_text)
-
-    def _format_item(self, item: ContextItem) -> str:
-        """Format a single context item for the prompt.
-
-        Args:
-            item: Context item to format.
-
-        Returns:
-            Formatted string representation.
-        """
-        parts = [
-            f"[{item.source_type.value.upper()}] {item.title}",
-        ]
-
-        if item.author:
-            parts.append(f"From: {item.author}")
-
-        parts.append(f"Time: {item.timestamp.strftime('%Y-%m-%d %H:%M')}")
-
-        if item.content:
-            # Truncate long content
-            content = item.content[:500]
-            if len(item.content) > 500:
-                content += "..."
-            parts.append(f"Content: {content}")
-
-        if item.url:
-            parts.append(f"Link: {item.url}")
-
-        return "\n".join(parts)
+        return format_brief_user_prompt(items, self.max_input_tokens)

@@ -6,23 +6,23 @@ FROM registry.access.redhat.com/ubi9/python-311:latest
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY pyproject.toml ./
+RUN pip install --no-cache-dir "uv~=0.11.0"
 
-# Install dependencies
-RUN pip install --no-cache-dir -e . && \
-    pip install --no-cache-dir psycopg2-binary
-
-# Copy application code
+# Lockfile-first install (reproducible)
+COPY pyproject.toml README.md uv.lock ./
 COPY src/ ./src/
+
+RUN uv sync --frozen --no-dev --no-editable && \
+    uv pip install --no-cache-dir psycopg2-binary
+
 COPY scripts/ ./scripts/
 
 # Create non-root user directory for data
 RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src \
+ENV PATH="/app/.venv/bin:${PATH}" \
+    PYTHONUNBUFFERED=1 \
     DEVASSIST_STORAGE=postgres
 
 # Health check

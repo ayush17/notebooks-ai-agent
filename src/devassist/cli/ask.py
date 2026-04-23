@@ -16,6 +16,7 @@ from devassist.cli.mcp_prepare import (
     prepare_orchestration_agent,
     print_mcp_connection_error,
 )
+from devassist.orchestrator.native_jira_tools import build_jira_native_tool_schemas
 
 console = Console()
 
@@ -38,7 +39,7 @@ def ask(
         typer.Option(
             "--servers",
             "-s",
-            help="Comma-separated list of MCP servers to connect (github,atlassian,filesystem)",
+            help="Comma-separated MCP servers (github,atlassian,filesystem). Jira REST tools (no browser) are added when ATLASSIAN_* or JIRA_* token env vars are set.",
         ),
     ] = None,
     verbose: Annotated[
@@ -97,7 +98,7 @@ async def _ask_async(
 
                 # Get available tools for verbose output
                 if verbose:
-                    tools = mcp_client.get_all_tools()
+                    tools = build_jira_native_tool_schemas() + mcp_client.get_all_tools()
                     console.print(f"\n[dim]Available tools: {len(tools)}[/dim]")
                     for tool in tools:
                         console.print(f"[dim]  - {tool.name}: {tool.description[:50]}...[/dim]")

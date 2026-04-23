@@ -13,12 +13,19 @@ DEFAULT_VERTEX_GEMINI_MODEL = "gemini-2.0-flash-001"
 
 
 def sanitize_gcp_field(value: Any) -> str:
-    """Strip whitespace and trailing junk from pasted GCP IDs (e.g. ``itpc-gcp-ai-eng-claude)``)."""
+    """Strip whitespace and copy-paste junk from GCP project IDs, regions, and model names.
+
+    Catches pasted values like ``itpc-gcp-ai-eng-claude)``, ``"my-project",``, or ``my-proj/``
+    that would otherwise produce invalid Vertex resource paths (404 Publisher Model).
+    """
     if value is None:
         return ""
     s = str(value).strip()
-    _trail_junk = frozenset({')', '"', "'", "]", "}", ">"})
-    while len(s) > 1 and s[-1] in _trail_junk:
+    _lead_junk = frozenset({'"', "'", "(", "<", "[", "{"})
+    _trail_junk = frozenset({')', '"', "'", "]", "}", ">", "/", ",", ";", ":"})
+    while s and s[0] in _lead_junk:
+        s = s[1:].lstrip()
+    while s and s[-1] in _trail_junk:
         s = s[:-1].rstrip()
     return s
 
@@ -37,11 +44,23 @@ class SourceConfig(BaseModel):
 class AIConfig(BaseModel):
     """Configuration for AI service integration."""
 
-    project_id: str = Field("", description="GCP project ID")
+    provider: str = Field(
+        "anthropic",
+        description="Brief summarization: 'anthropic' (Claude) or 'gemini' (Vertex AI Gemini)",
+    )
+    project_id: str = Field("", description="GCP project ID (for Gemini on Vertex)")
     location: str = Field("us-central1", description="GCP region")
-    model: str = Field(DEFAULT_VERTEX_GEMINI_MODEL, description="Model to use")
+    model: str = Field(DEFAULT_VERTEX_GEMINI_MODEL, description="Gemini model id when provider is gemini")
     max_retries: int = Field(3, description="Max retry attempts")
     timeout_seconds: int = Field(60, description="Request timeout")
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def _normalize_provider(cls, v: Any) -> str:
+        s = sanitize_gcp_field(v or "anthropic").lower()
+        if s in ("vertex", "google"):
+            return "gemini"
+        return s if s in ("anthropic", "gemini") else "anthropic"
 
     @field_validator("project_id", "location", "model", mode="before")
     @classmethod

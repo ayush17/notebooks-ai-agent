@@ -1,6 +1,7 @@
 # DevAssist - AI-Powered Developer Assistant
 
 A Python CLI application that aggregates context from multiple developer tools (GitHub, Jira, Slack) and uses AI to provide:
+
 - **Morning Briefs** - Consolidated summaries of your PRs, issues, and messages
 - **Interactive Chat** - Ask questions about your work in natural language
 - **Background Daemon** - Scheduled briefs at 8am, 1pm, and 5pm
@@ -17,19 +18,22 @@ A Python CLI application that aggregates context from multiple developer tools (
 
 ### 1. Clone and Install
 
+This project uses [uv](https://docs.astral.sh/uv/) for environments and installs (pinned via `uv.lock` and `.python-version`).
+
 ```bash
 # Clone the repository
 git clone https://github.com/ayush17/notebooks-ai-agent.git
 cd notebooks-ai-agent
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# or: .venv\Scripts\activate  # Windows
+# Install uv (once per machine): https://docs.astral.sh/uv/getting-started/installation/
+# Then create .venv and install the project + dev dependencies
+uv sync --extra dev
 
-# Install in development mode
-pip install -e ".[dev]"
+# Run CLI without activating the venv explicitly
+uv run devassist --version
 ```
+
+Activation is optional — use `source .venv/bin/activate` if you prefer a traditional workflow. Without uv, use `pip install -e ".[dev]"` in a Python 3.11+ virtual environment instead.
 
 ### 2. Install MCP Servers
 
@@ -44,18 +48,19 @@ npm install -g @modelcontextprotocol/server-github
 ### 3. Configure Credentials
 
 #### Option A: Interactive Setup
+
 ```bash
 devassist setup init
 ```
 
 #### Option B: Manual Configuration
 
-Create `~/.devassist/.env`:
+Credentials and exports live in `**~/.devassist/env**` (the CLI also reads a legacy `**~/.devassist/.env**` if present; new writes update both files with the same content).
 
 ```bash
 mkdir -p ~/.devassist
 
-cat > ~/.devassist/.env << 'EOF'
+cat > ~/.devassist/env << 'EOF'
 # Claude AI (via Anthropic API)
 export ANTHROPIC_API_KEY="your-anthropic-key"
 
@@ -77,14 +82,16 @@ export ATLASSIAN_EMAIL="your-email@example.com"
 export ATLASSIAN_API_TOKEN="your-atlassian-token"
 EOF
 
-chmod 600 ~/.devassist/.env
+chmod 600 ~/.devassist/env
 ```
+
+Application settings (which sources are enabled, **brief AI provider**, Gemini project/region, etc.) are stored in `**~/.devassist/config.yaml`**. After you edit the env file, run `**devassist config sync**` so the `ai` section stays aligned with your Claude/Vertex credentials, or run `**devassist setup init**` once to drive both files interactively.
 
 ### 4. Test It
 
 ```bash
-# Load environment
-source ~/.devassist/.env
+# Load environment (optional — the CLI loads ~/.devassist/env on every run)
+source ~/.devassist/env
 
 # One-off question
 devassist ask "What PRs need my review?" -s github
@@ -92,11 +99,30 @@ devassist ask "What PRs need my review?" -s github
 # Interactive chat
 devassist chat -s github,atlassian
 
-# Check status
+# Check status (env file, YAML, brief AI provider)
 devassist setup status
 ```
 
+## Workspace directory (`~/.devassist`)
+
+
+| Path          | Purpose                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `env`         | Canonical shell-style exports (API keys, Atlassian URL, Vertex project, etc.).                                      |
+| `.env`        | Legacy mirror of `env` for existing scripts that `source ~/.devassist/.env`.                                        |
+| `config.yaml` | Non-secret app config: enabled sources, `**ai.provider**` / `**ai.project_id**` / region, MCP entries, preferences. |
+| `briefs/`     | Generated morning brief output (daemon).                                                                            |
+| `daemon.log`  | Daemon log file when using the background script.                                                                   |
+
+
 ## Usage
+
+### Morning brief (`devassist brief`)
+
+Briefs summarize aggregated context using **Anthropic Claude** by default (`config.yaml` → `ai.provider: anthropic`), matching the usual `ask` / chat path and avoiding Vertex-only Gemini setup when you do not need it.
+
+- **Gemini on Vertex** (when you already use GCP for Claude or want Flash on Vertex): set `ai.provider` to `gemini` in `config.yaml`, or export `DEVASSIST_AI_PROVIDER=gemini` / `vertex`, and ensure `ai.project_id` and region are set. Running `**devassist setup init`** and choosing Vertex AI updates both `env` and `**config.yaml**` accordingly.
+- **Override for one run:** `devassist brief -p gemini` or `devassist brief -p anthropic`.
 
 ### Ask Command (One-off Questions)
 
@@ -119,6 +145,7 @@ devassist chat -s github,atlassian
 ```
 
 Available commands in chat:
+
 - `/help` - Show help
 - `/servers` - List connected MCP servers
 - `/tools` - List available tools
@@ -145,6 +172,7 @@ cat ~/.devassist/briefs/latest.md
 ```
 
 The daemon generates briefs at:
+
 - 8:00 AM
 - 1:00 PM  
 - 5:00 PM
@@ -158,56 +186,61 @@ src/devassist/
 ├── adapters/      # Context source adapters (gmail, slack, jira, github)
 ├── mcp/           # MCP client and server registry
 ├── orchestrator/  # LLM orchestration agent
-├── ai/            # Vertex AI integration
+├── ai/            # LLM clients (Anthropic brief, Vertex Gemini, prompts)
 ├── preferences/   # Preference learning (planned)
 └── models/        # Pydantic data models
 ```
 
 ## MCP Servers
 
-| Server | Package | Purpose |
-|--------|---------|---------|
-| GitHub | `@modelcontextprotocol/server-github` | PRs, issues, repos |
+
+| Server    | Package                                           | Purpose                       |
+| --------- | ------------------------------------------------- | ----------------------------- |
+| GitHub    | `@modelcontextprotocol/server-github`             | PRs, issues, repos            |
 | Atlassian | `mcp-remote` → `https://mcp.atlassian.com/v1/mcp` | Jira, Confluence (hosted MCP) |
+
 
 ## Troubleshooting
 
 ### "No MCP servers configured"
+
 - Run `devassist setup status` to check configuration
-- Ensure environment variables are set: `source ~/.devassist/.env`
+- Ensure credentials exist: `~/.devassist/env` (or `source ~/.devassist/env` for other tools in the shell)
 
 ### Atlassian MCP slow or auth issues
+
 - First run downloads `mcp-remote`; ensure outbound HTTPS is allowed
 - Authentication follows Atlassian’s remote MCP flow (browser/OAuth as prompted by the connector)
 - Large Jira searches may take 30–60 seconds
 
 ### GitHub MCP asks for repo details
+
 - Use specific search syntax: "Search for PRs using is:pr is:open review-requested:@me"
 - The LLM needs guidance on GitHub search queries
 
 ### Command not found: devassist
-- Ensure you've activated the venv: `source .venv/bin/activate`
-- Reinstall: `pip install -e .`
+
+- Run `uv sync --extra dev` so `.venv` exists and the `devassist` console script is installed.
+- Or activate the venv and retry: `source .venv/bin/activate`
+- Without uv: `pip install -e .`
 
 ## Development
 
+Use `uv run` so tools use the project environment:
+
 ```bash
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=devassist
-
-# Type checking
-mypy src/
-
-# Linting
-ruff check src/
+uv run pytest
+uv run pytest --cov=devassist
+uv run mypy src/
+uv run ruff check src/
 ```
+
+After changing dependencies in `pyproject.toml`, refresh the lockfile with `uv lock` and commit `uv.lock` alongside your edits.
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11+ (managed automatically when using uv with `.python-version`)
+- uv (recommended) — optional; pip still works with `pip install -e ".[dev]"`.
 - Node.js 18+ (for MCP servers)
 - **Claude AI access** (one of the following):
   - Anthropic API key from [console.anthropic.com](https://console.anthropic.com) (paid)
@@ -217,19 +250,28 @@ ruff check src/
 
 ## Environment Variables Reference
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes* | Anthropic API key for Claude |
-| `CLAUDE_CODE_USE_VERTEX` | Yes* | Set to `1` for Vertex AI |
-| `ANTHROPIC_VERTEX_PROJECT_ID` | Yes* | GCP project ID for Vertex AI |
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | Yes | GitHub PAT with repo, notifications scopes |
-| `ATLASSIAN_BASE_URL` | No | Optional; for `devassist brief` Jira adapter (not MCP remote) |
-| `ATLASSIAN_EMAIL` | No | Optional; same |
-| `ATLASSIAN_API_TOKEN` | No | Optional; same |
-| `SLACK_BOT_TOKEN` | No | Slack bot token (xoxb-...) |
-| `SLACK_TEAM_ID` | No | Slack workspace ID |
+Variables below can be stored in `**~/.devassist/env`** (recommended) or exported in the shell. `**DEVASSIST_***` overrides apply when set in the environment (including inside `env`) and merge with `**config.yaml**` at runtime via `ConfigManager`.
 
-*Either Anthropic API key OR Vertex AI config required
+
+| Variable                       | Required | Description                                                                                               |
+| ------------------------------ | -------- | --------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`            | Yes*     | Anthropic API key for Claude (`ask`, chat, **brief** default)                                             |
+| `CLAUDE_CODE_USE_VERTEX`       | Yes*     | Set to `1` when using Claude via Vertex                                                                   |
+| `CLOUD_ML_REGION`              | Yes*     | GCP region for Vertex (e.g. `us-east5`)                                                                   |
+| `ANTHROPIC_VERTEX_PROJECT_ID`  | Yes*     | GCP project ID for Vertex AI                                                                              |
+| `DEVASSIST_AI_PROVIDER`        | No       | `anthropic` or `gemini` — brief summarization backend; persisted by `devassist config sync` when in `env` |
+| `DEVASSIST_AI_PROJECT_ID`      | No       | Overrides `ai.project_id` in YAML (Gemini / Vertex brief)                                                 |
+| `DEVASSIST_AI_LOCATION`        | No       | Overrides `ai.location` (GCP region for Gemini on Vertex)                                                 |
+| `DEVASSIST_AI_MODEL`           | No       | Overrides `ai.model` (Gemini model id)                                                                    |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | Yes      | GitHub PAT with repo, notifications scopes                                                                |
+| `ATLASSIAN_BASE_URL`           | No       | Optional; for `devassist brief` Jira adapter (not MCP remote)                                             |
+| `ATLASSIAN_EMAIL`              | No       | Optional; same                                                                                            |
+| `ATLASSIAN_API_TOKEN`          | No       | Optional; same                                                                                            |
+| `SLACK_BOT_TOKEN`              | No       | Slack bot token (xoxb-...)                                                                                |
+| `SLACK_TEAM_ID`                | No       | Slack workspace ID                                                                                        |
+
+
+Either Anthropic API key OR Vertex AI (`CLAUDE_CODE_USE_VERTEX` + project id) config for Claude-powered flows
 
 ## License
 
@@ -240,5 +282,6 @@ MIT License - see LICENSE file for details.
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `pytest`
+4. Run tests: `uv run pytest`
 5. Submit a pull request
+

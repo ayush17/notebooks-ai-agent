@@ -167,6 +167,13 @@ def generate_brief(
         "-j",
         help="Output as JSON for machine processing.",
     ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="Summarization backend: anthropic (Claude) or gemini (Vertex AI). "
+        "Default: config ai.provider or anthropic.",
+    ),
 ) -> None:
     """Generate your Unified Morning Brief.
 
@@ -185,7 +192,7 @@ def generate_brief(
 
     try:
         # Generate brief
-        generator = BriefGenerator()
+        generator = BriefGenerator(ai_provider_override=provider)
         brief = asyncio.run(generator.generate(sources=source_filter, refresh=refresh))
 
         # Display result
