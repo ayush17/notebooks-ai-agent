@@ -10,6 +10,7 @@ from typing import Any
 
 from devassist.mcp.client import ToolSchema
 from devassist.models.config import DEFAULT_VERTEX_GEMINI_MODEL, sanitize_gcp_field
+from devassist.utils.gcp_env import resolve_gcp_project_id
 
 
 @dataclass
@@ -102,7 +103,8 @@ class VertexAILLMClient(LLMClient):
             location: GCP region.
             model: Model name.
         """
-        self.project_id = sanitize_gcp_field(project_id or "")
+        pid = sanitize_gcp_field(project_id or "")
+        self.project_id = sanitize_gcp_field(pid or resolve_gcp_project_id())
         self.location = sanitize_gcp_field(location)
         self.model = sanitize_gcp_field(model or self.DEFAULT_MODEL)
         self._client: Any = None
@@ -282,12 +284,13 @@ class AnthropicLLMClient(LLMClient):
         if self.use_vertex is None:
             self.use_vertex = os.environ.get("CLAUDE_CODE_USE_VERTEX") == "1"
         
-        self.vertex_project_id = vertex_project_id or os.environ.get("ANTHROPIC_VERTEX_PROJECT_ID")
+        explicit = sanitize_gcp_field(vertex_project_id or "")
+        self.vertex_project_id = sanitize_gcp_field(explicit or resolve_gcp_project_id())
         self.vertex_region = vertex_region or os.environ.get("CLOUD_ML_REGION", "us-east5")
         
         # Use appropriate model for the backend
         if model:
-            self.model = model
+            self.model = sanitize_gcp_field(model)
         elif self.use_vertex:
             self.model = self.VERTEX_MODEL
         else:
@@ -307,8 +310,13 @@ class AnthropicLLMClient(LLMClient):
                     
                     if not self.vertex_project_id:
                         raise RuntimeError(
-                            "ANTHROPIC_VERTEX_PROJECT_ID not set. "
-                            "See Red Hat Claude setup instructions."
+                            "GCP project ID not found for Claude on Vertex. Set "
+                            "ANTHROPIC_VERTEX_PROJECT_ID or GOOGLE_CLOUD_PROJECT, or run "
+                            "`gcloud config set project YOUR_PROJECT_ID` (the active gcloud "
+                            "profile under ~/.config/gcloud is used as a fallback). "
+                            "For credentials (often confused with 'project'), run "
+                            "`gcloud auth application-default login` or set "
+                            "GOOGLE_APPLICATION_CREDENTIALS to a service account JSON path."
                         )
                     
                     self._client = AnthropicVertex(

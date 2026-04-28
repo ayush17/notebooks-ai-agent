@@ -28,18 +28,19 @@ _NO_SERVERS_PANELS: dict[Literal["chat", "ask"], tuple[str, str]] = {
         "[yellow]No MCP servers configured.[/yellow]\n\n"
         "To configure servers, add them to your config:\n"
         "  [cyan]devassist config mcp add github --token YOUR_TOKEN[/cyan]\n\n"
-        "Or specify servers with credentials via environment:\n"
-        "  GITHUB_PERSONAL_ACCESS_TOKEN=xxx devassist ask 'your question' -s github",
+        "Put the token in ~/.devassist/env as GITHUB_PERSONAL_ACCESS_TOKEN, or export\n"
+        "  GITHUB_PERSONAL_ACCESS_TOKEN, GITHUB_TOKEN, or GH_TOKEN when using -s github.",
         "No Servers Available",
     ),
 }
 
 
 def ensure_setup_complete() -> None:
-    """Load ``~/.devassist/.env`` and exit if the setup wizard has not been completed."""
-    from devassist.cli.setup import check_and_prompt_setup, load_devassist_env_into_os
+    """Load ``~/.devassist/env`` and exit if the setup wizard has not been completed."""
+    from devassist.cli.setup import check_and_prompt_setup
+    from devassist.core.env_store import load_devassist_env_into_os
 
-    load_devassist_env_into_os()
+    load_devassist_env_into_os(prefer_file=True)
     if not check_and_prompt_setup():
         raise typer.Exit(1)
 

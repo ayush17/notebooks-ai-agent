@@ -13,13 +13,12 @@
 git clone https://github.com/singlarity-seekers/singlarity.git
 cd singlarity
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# or: .venv\Scripts\activate  # Windows
+# Using uv (recommended — see repo root uv.lock / .python-version)
+# https://docs.astral.sh/uv/getting-started/installation/
+uv sync --extra dev
+uv run devassist --version
 
-# Install in development mode
-pip install -e ".[dev]"
+# Without uv: python -m venv .venv, activate, then pip install -e ".[dev]"
 ```
 
 ## Initial Setup

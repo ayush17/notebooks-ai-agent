@@ -8,18 +8,22 @@ echo "========================================="
 echo "DevAssist (Claude SDK) Test Workflow"
 echo "========================================="
 
-# Activate virtual environment
-source .venv/bin/activate
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv is required. Install: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
+fi
 
-echo -e "\n✓ Virtual environment activated"
+uv sync --extra dev
+
+echo -e "\n✓ Dependencies synced (uv)"
 
 # Step 1: Check version
 echo -e "\n--- Step 1: Check version ---"
-devassist --version
+uv run devassist --version
 
 # Step 2: Check status (creates workspace)
 echo -e "\n--- Step 2: Check status ---"
-devassist status
+uv run devassist status
 
 # Step 3: Verify workspace and new resources
 echo -e "\n--- Step 3: Verify workspace and resources ---"
@@ -33,7 +37,7 @@ fi
 
 # Check if resources are accessible
 echo -e "\n--- Step 3b: Check resources module ---"
-if python -c "from devassist.resources import load_system_prompt, load_mcp_config; print('Resources loaded successfully')" 2>/dev/null; then
+if uv run python -c "from devassist.resources import load_system_prompt, load_mcp_config; print('Resources loaded successfully')" 2>/dev/null; then
     echo "✓ Resources module working"
 else
     echo "✗ Resources module not working"
@@ -41,40 +45,40 @@ fi
 
 # Step 4: Test V2 brief command help
 echo -e "\n--- Step 4: V2 brief command help ---"
-devassist brief --help
+uv run devassist brief --help
 
 # Step 5: Test session management commands
 echo -e "\n--- Step 5: Session management commands ---"
 echo "Testing session list (should be empty):"
-devassist brief sessions || echo "No sessions yet (expected)"
+uv run devassist brief sessions || echo "No sessions yet (expected)"
 
 echo -e "\nTesting session cleanup (should handle empty gracefully):"
-devassist brief clean || echo "No sessions to clean (expected)"
+uv run devassist brief clean || echo "No sessions to clean (expected)"
 
 # Step 6: Test brief generation with Claude SDK (mock mode)
 echo -e "\n--- Step 6: Generate V2 brief (mock mode) ---"
 echo "Note: This will fail without Claude API credentials - expected behavior"
-devassist brief --prompt "Hello, test prompt" || echo "Expected failure without credentials"
+uv run devassist brief --prompt "Hello, test prompt" || echo "Expected failure without credentials"
 
 # Step 7: Test brief with custom prompt and resources
 echo -e "\n--- Step 7: Test custom prompt handling ---"
-devassist brief --prompt "What can you help me with?" --resources "all" || echo "Expected failure without credentials"
+uv run devassist brief --prompt "What can you help me with?" --resources "all" || echo "Expected failure without credentials"
 
 # Step 8: Test session resume functionality
 echo -e "\n--- Step 8: Test session resume (should handle no sessions gracefully) ---"
-devassist brief --resume || echo "Expected failure - no sessions to resume"
+uv run devassist brief --resume || echo "Expected failure - no sessions to resume"
 
 # Step 9: Run unit tests including V2 components
 echo -e "\n--- Step 9: Run unit tests (including V2) ---"
 echo "Testing ClaudeClient:"
-pytest tests/unit/test_claude_client.py -v --tb=short
+uv run pytest tests/unit/test_claude_client.py -v --tb=short
 
 echo -e "\nTesting all unit tests:"
-pytest tests/unit/ -v --tb=short -q
+uv run pytest tests/unit/ -v --tb=short -q
 
 # Step 10: Test MCP config validation
 echo -e "\n--- Step 10: Test MCP configuration loading ---"
-python -c "
+uv run python -c "
 from devassist.resources import load_mcp_config
 try:
     config = load_mcp_config()
@@ -87,7 +91,7 @@ except Exception as e:
 
 # Step 11: Test system prompt loading
 echo -e "\n--- Step 11: Test system prompt loading ---"
-python -c "
+uv run python -c "
 from devassist.resources import load_system_prompt
 try:
     prompt = load_system_prompt()
@@ -99,7 +103,7 @@ except Exception as e:
 
 # Step 12: Test Claude session management (dry run)
 echo -e "\n--- Step 12: Test session management (dry run) ---"
-python -c "
+uv run python -c "
 from devassist.core.session_manager import SessionManager
 import tempfile
 import os

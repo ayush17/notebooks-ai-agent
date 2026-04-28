@@ -19,6 +19,7 @@ sys.path.insert(0, str(PROJECT_DIR / "src"))
 from devassist.mcp.client import MCPClient
 from devassist.mcp.registry import MCPRegistry, MCPServerConfig
 from devassist.orchestrator.agent import OrchestrationAgent
+from devassist.core.env_store import load_devassist_env_into_os
 from devassist.orchestrator.llm_client import AnthropicLLMClient, VertexAILLMClient
 
 # Configure logging
@@ -59,21 +60,9 @@ class DevAssistDaemon:
         self.running = False
 
     def _load_env(self):
-        """Load environment variables from .env file."""
-        env_file = Path.home() / ".devassist" / ".env"
-        if env_file.exists():
-            with open(env_file) as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        # Handle export statements
-                        if line.startswith("export "):
-                            line = line[7:]
-                        key, _, value = line.partition("=")
-                        # Remove quotes
-                        value = value.strip('"').strip("'")
-                        os.environ[key] = value
-            logger.info("Loaded environment from .env file")
+        """Load ``~/.devassist/env`` (and legacy ``.env``) into the process environment."""
+        load_devassist_env_into_os(prefer_file=True)
+        logger.info("Loaded DevAssist env file(s)")
 
     def _get_llm_client(self):
         """Get configured LLM client."""

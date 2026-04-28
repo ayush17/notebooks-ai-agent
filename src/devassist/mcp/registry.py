@@ -133,7 +133,15 @@ class MCPRegistry:
             # Copy env vars and populate from system environment
             env = {}
             for key in config.env.keys():
-                env[key] = os.environ.get(key, "")
+                if name == "github" and key == "GITHUB_PERSONAL_ACCESS_TOKEN":
+                    env[key] = (
+                        os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN")
+                        or os.environ.get("GITHUB_TOKEN")
+                        or os.environ.get("GH_TOKEN")
+                        or ""
+                    )
+                else:
+                    env[key] = os.environ.get(key, "")
             
             # Copy args and handle special cases
             args = config.args.copy()

@@ -6,6 +6,7 @@ Orchestrates aggregation, ranking, and AI summarization to create morning briefs
 from datetime import datetime
 from typing import Any
 
+from devassist.ai.anthropic_brief_client import AnthropicBriefClient
 from devassist.ai.vertex_client import VertexAIClient
 from devassist.core.aggregator import ContextAggregator
 from devassist.core.cache_manager import CacheManager
@@ -25,7 +26,8 @@ class BriefGenerator:
         config_manager: ConfigManager | None = None,
         aggregator: ContextAggregator | None = None,
         ranker: RelevanceRanker | None = None,
-        ai_client: VertexAIClient | None = None,
+        ai_client: Any = None,
+        ai_provider_override: str | None = None,
         cache: CacheManager | None = None,
     ) -> None:
         """Initialize BriefGenerator.
@@ -34,7 +36,8 @@ class BriefGenerator:
             config_manager: Configuration manager.
             aggregator: Context aggregator.
             ranker: Relevance ranker.
-            ai_client: AI client for summarization.
+            ai_client: Optional pre-built summarization client (tests).
+            ai_provider_override: ``anthropic`` or ``gemini``; overrides ``config.ai.provider``.
             cache: Cache manager.
         """
         self._config_manager = config_manager or ConfigManager()
@@ -47,14 +50,23 @@ class BriefGenerator:
 
         self._ranker = ranker or RelevanceRanker(priority_keywords=priority_keywords)
 
-        # Initialize AI client with config
-        self._ai_client = ai_client or VertexAIClient(
-            project_id=config.ai.project_id,
-            location=config.ai.location,
-            model=config.ai.model,
-            max_retries=config.ai.max_retries,
-            timeout_seconds=config.ai.timeout_seconds,
-        )
+        prov_raw = (ai_provider_override or config.ai.provider or "anthropic").strip().lower()
+        prov = "gemini" if prov_raw in ("gemini", "vertex", "google") else "anthropic"
+
+        if ai_client is not None:
+            self._ai_client = ai_client
+        elif prov == "gemini":
+            self._ai_client = VertexAIClient(
+                project_id=config.ai.project_id,
+                location=config.ai.location,
+                model=config.ai.model,
+                max_retries=config.ai.max_retries,
+                timeout_seconds=config.ai.timeout_seconds,
+            )
+        else:
+            self._ai_client = AnthropicBriefClient(
+                max_retries=config.ai.max_retries,
+            )
 
     async def generate(
         self,

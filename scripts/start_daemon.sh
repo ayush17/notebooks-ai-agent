@@ -30,7 +30,7 @@ if [ -d "$VENV_DIR" ]; then
     source "$VENV_DIR/bin/activate"
 else
     echo -e "${RED}Error: Virtual environment not found.${NC}"
-    echo "Run: python -m venv .venv && pip install -e ."
+    echo "Run: uv sync"
     exit 1
 fi
 
